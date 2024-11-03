@@ -7,13 +7,20 @@ import {
 	createSourceFile,
 	getSourceFileKindFromExt,
 	joinPaths,
+	NodeHost,
 	Service,
 } from "@typespec/compiler";
-import { fs } from "memfs";
+import { ufs } from "unionfs";
+import { fs as memfs, Volume } from "memfs";
+import * as fs from "fs";
 import { getOpenAPI3 } from "@typespec/openapi3";
 import appRootPath from "app-root-path";
 
-const { readFile, writeFile, readdir, mkdir, rm, stat } = fs.promises;
+// @ts-ignore
+ufs.use(memfs).use(fs);
+
+const { lstatSync, readlinkSync } = memfs;
+const { readFile, writeFile, readdir, mkdir, rm, stat } = ufs.promises;
 
 const readUtf8File = async (path: string): Promise<string> => {
 	const buffer = await readFile(path);
@@ -38,16 +45,17 @@ const readUtf8File = async (path: string): Promise<string> => {
 };
 
 const realpath = async (p: string) => {
+	console.log("realpath", p);
 	let currentPath = path.resolve(p);
 	let stat: any;
 	try {
-		stat = fs.lstatSync(currentPath);
+		stat = lstatSync(currentPath);
 	} catch (err) {
 		throw new Error(`Path does not exist: ${currentPath}`);
 	}
 
 	if (stat.isSymbolicLink()) {
-		const linkTarget = fs.readlinkSync(currentPath);
+		const linkTarget = readlinkSync(currentPath);
 		currentPath = path.resolve(
 			path.dirname(currentPath),
 			linkTarget.toString(),
@@ -82,7 +90,10 @@ export const VirtualHost: CompilerHost = {
 	stat,
 	realpath,
 	getSourceFileKind: getSourceFileKindFromExt,
-	getExecutionRoot: () => appRootPath.resolve(fileURLToPath(import.meta.url)),
+	getExecutionRoot: () => {
+		const path = appRootPath.resolve("/");
+		return path;
+	},
 	fileURLToPath,
 	pathToFileURL: (path) => pathToFileURL(path).href,
 	logSink: {
@@ -93,13 +104,14 @@ export const VirtualHost: CompilerHost = {
 export const getOpenApi3 = async (sourceCode: string): Promise<Service> => {
 	// NOTE: This is an absolute path: memfs doesn't really handle
 	//  relative paths
-	const sourceFilePath = "/source.tsp";
+	const sourceFilePath = "./tmp/main.tsp";
+	await mkdir("./tmp", { recursive: true });
 	const _virtualSourceFile = await writeFile(sourceFilePath, sourceCode);
-	const program = await compile(VirtualHost, sourceFilePath, {
+	const program = await compile(NodeHost, sourceFilePath, {
 		emit: ["@typespec/openapi3"],
 	});
 
-	console.log(program);
+	console.log(program.diagnostics);
 	const [openapi3] = await getOpenAPI3(program);
 
 	return openapi3.service;
@@ -175,5 +187,6 @@ namespace Pets {
 	.then((service) => {
 		console.log("yay");
 		console.log(service);
+		console.log(service.type.namespaces.get("PetStore"));
 	})
 	.catch(console.error);

@@ -61,7 +61,9 @@
   "dependencies": {
     "app-root-path": "^3.1.0",
     "basketry": "^0.1.1",
-    "memfs": "^4.13.0"
+    "linkfs": "^2.1.0",
+    "memfs": "^4.14.0",
+    "unionfs": "^4.5.4"
   },
   "volta": {
     "node": "22.9.0"

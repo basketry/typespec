@@ -3,6 +3,7 @@
     "lib": [
       "es6"
     ],
+    "esModuleInterop": true,
     "module": "commonjs",
     "allowImportingTsExtensions": true,
     "noImplicitReturns": true,
