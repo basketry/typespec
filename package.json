@@ -3,8 +3,9 @@
   "version": "0.0.0",
   "description": "Basketry parser for TypeSpec service definitions",
   "main": "./lib/index.js",
+  "type": "module",
   "scripts": {
-    "test": "jest",
+    "test": "node --import tsx --test",
     "clean": "run-s -s clean:*",
     "create-snapshot": "ts-node ./src/snapshot/create-snapshot.ts",
     "lint": "run-s -s lint:*",
@@ -42,7 +43,7 @@
   "devDependencies": {
     "@types/jest": "^29.5.12",
     "@types/json-to-ast": "^2.1.2",
-    "@types/node": "^17.0.10",
+    "@types/node": "^22.7.4",
     "@typescript-eslint/eslint-plugin": "^5.8.1",
     "@typescript-eslint/parser": "^5.8.1",
     "eslint": "^8.5.0",
@@ -54,6 +55,7 @@
     "rimraf": "^3.0.2",
     "ts-jest": "^29.1.2",
     "ts-node": "^10.4.0",
+    "tsx": "^4.19.1",
     "typescript": "^5.6.2"
   },
   "dependencies": {

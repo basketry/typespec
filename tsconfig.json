@@ -1,7 +1,10 @@
 {
   "compilerOptions": {
-    "lib": ["es6"],
+    "lib": [
+      "es6"
+    ],
     "module": "commonjs",
+    "allowImportingTsExtensions": true,
     "noImplicitReturns": true,
     "outDir": "lib",
     "sourceMap": true,
@@ -9,6 +12,10 @@
     "declaration": true,
     "strictNullChecks": true
   },
-  "include": ["src"],
-  "exclude": ["**/*.test?.*"]
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "**/*.test?.*"
+  ]
 }
