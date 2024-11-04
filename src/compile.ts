@@ -5,103 +5,19 @@ import {
 	CompilerHost,
 	createChecker,
 	createSourceFile,
+	getDoc,
 	getSourceFileKindFromExt,
+	getTypeName,
 	joinPaths,
 	NodeHost,
+	Program,
 	Service,
 } from "@typespec/compiler";
-import { ufs } from "unionfs";
-import { fs as memfs, Volume } from "memfs";
-import * as fs from "fs";
 import { getOpenAPI3 } from "@typespec/openapi3";
-import appRootPath from "app-root-path";
+import { mkdir, writeFile } from "fs/promises";
+import { getAllHttpServices } from "@typespec/http";
 
-// @ts-ignore
-ufs.use(memfs).use(fs);
-
-const { lstatSync, readlinkSync } = memfs;
-const { readFile, writeFile, readdir, mkdir, rm, stat } = ufs.promises;
-
-const readUtf8File = async (path: string): Promise<string> => {
-	const buffer = await readFile(path);
-	const len = buffer.length;
-	if (len >= 2 && buffer[0] === 0xfe && buffer[1] === 0xff) {
-		throw new Error("UTF-16 BE");
-	}
-	if (len >= 2 && buffer[0] === 0xff && buffer[1] === 0xfe) {
-		throw new Error("UTF-16 LE");
-	}
-	if (
-		len >= 3 &&
-		buffer[0] === 0xef &&
-		buffer[1] === 0xbb &&
-		buffer[2] === 0xbf
-	) {
-		// UTF-8 byte order mark detected
-		return buffer.toString("utf8", 3);
-	}
-	// Default is UTF-8 with no byte order mark
-	return buffer.toString("utf8");
-};
-
-const realpath = async (p: string) => {
-	console.log("realpath", p);
-	let currentPath = path.resolve(p);
-	let stat: any;
-	try {
-		stat = lstatSync(currentPath);
-	} catch (err) {
-		throw new Error(`Path does not exist: ${currentPath}`);
-	}
-
-	if (stat.isSymbolicLink()) {
-		const linkTarget = readlinkSync(currentPath);
-		currentPath = path.resolve(
-			path.dirname(currentPath),
-			linkTarget.toString(),
-		);
-		return realpath(currentPath); // recursively resolve if needed
-	}
-
-	return currentPath;
-};
-
-export const VirtualHost: CompilerHost = {
-	readFile: async (path: string) =>
-		createSourceFile(await readUtf8File(path), path),
-	writeFile: (path: string, content: string) =>
-		writeFile(path, content, { encoding: "utf-8" }),
-	readDir: async (path: string) => {
-		const res = await readdir(path);
-		return res.map((p: any) => p.toString());
-	},
-	readUrl: async (url: string) => {
-		const response = await fetch(url, { redirect: "follow" });
-		const text = await response.text();
-		return createSourceFile(text, response.url);
-	},
-	getLibDirs() {
-		const rootDir = this.getExecutionRoot();
-		return [joinPaths(rootDir, "lib/std")];
-	},
-	getJsImport: (path) => import(pathToFileURL(path).href),
-	rm,
-	mkdirp: (path: string) => mkdir(path, { recursive: true }),
-	stat,
-	realpath,
-	getSourceFileKind: getSourceFileKindFromExt,
-	getExecutionRoot: () => {
-		const path = appRootPath.resolve("/");
-		return path;
-	},
-	fileURLToPath,
-	pathToFileURL: (path) => pathToFileURL(path).href,
-	logSink: {
-		log: console.log,
-	},
-};
-
-export const getOpenApi3 = async (sourceCode: string): Promise<Service> => {
+export const compileProgram = async (sourceCode: string): Promise<Program> => {
 	// NOTE: This is an absolute path: memfs doesn't really handle
 	//  relative paths
 	const sourceFilePath = "./tmp/main.tsp";
@@ -111,15 +27,21 @@ export const getOpenApi3 = async (sourceCode: string): Promise<Service> => {
 		emit: ["@typespec/openapi3"],
 	});
 
-	console.log(program.diagnostics);
+	return program;
+};
+export const getOpenApi3 = async (program: Program): Promise<Service> => {
 	const [openapi3] = await getOpenAPI3(program);
 
 	return openapi3.service;
 };
 
-getOpenApi3(`
+compileProgram(`
 /** This is an example doc-string let's goooo */
 import "@typespec/http";
+/*
+* imports are not supported yet
+* import "./Banana.tsp";
+*/
 
 using TypeSpec.Http;
 
@@ -150,8 +72,26 @@ enum petType {
   reptile: "reptile",
 }
 
+interface WritePet {
+  write(pet: Pet): void;
+}
+
 @route("/pets")
 namespace Pets {
+  model Pet {
+    name: string;
+  }
+
+  enum petType {
+    dog: "dog",
+  }
+
+
+  @doc("""
+    List all pets
+    
+    This is multiline because that is good
+  """)
   @get
   op listPets(): {
     @statusCode statusCode: 200;
@@ -184,9 +124,17 @@ namespace Pets {
   };
 }
 `)
-	.then((service) => {
-		console.log("yay");
-		console.log(service);
-		console.log(service.type.namespaces.get("PetStore"));
+	.then((program) => {
+		const [services] = getAllHttpServices(program);
+		console.log(services[0].operations);
+		console.log(getDoc(program, services[0].operations[0].operation));
+		getOpenApi3(program)
+			.then((service) => {
+				console.log("yay");
+				// console.log(service);
+				// console.log(service.type.interfaces);
+				// console.log(service.type.namespaces.get("Pets").decorators);
+			})
+			.catch(console.error);
 	})
 	.catch(console.error);

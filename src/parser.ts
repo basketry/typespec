@@ -1,5 +1,7 @@
-import { Service, Violation } from "basketry";
-import { getOpenApi3 } from "./compile";
+import { Enum, Interface, Service, Type, Union, Violation } from "basketry";
+import { compileProgram, getOpenApi3 } from "./compile";
+import { getTypeName, Namespace } from "@typespec/compiler";
+import { getAllHttpServices, getRoutePath } from "@typespec/http";
 
 export class TypeSpecParser {
 	constructor(
@@ -15,10 +17,43 @@ export class TypeSpecParser {
 		service: Service;
 		violations: Violation[];
 	}> {
-		const service = await getOpenApi3(this.schema);
+    const program = await compileProgram(this.schema);
+		const service = await getOpenApi3(program);
 
-		const models = [];
+		type Stuff = Pick<Service, "interfaces" | "types" | "enums" | "unions">;
+		const things: Array<Stuff> = [];
+		const traverseNamespaces = (namespace: Namespace) => {
+			if (namespace.namespaces.size > 0) {
+				for (const [, nestedNamespace] of namespace.namespaces) {
+					traverseNamespaces(nestedNamespace);
+				}
+			}
+
+			const interfaces: Interface[] = [];
+			const types: Type[] = [];
+			const enums: Enum[] = [];
+			const unions: Union[] = [];
+
+const [services] = getAllHttpServices(program);
+
+      services.map(service => {
+service.operations.map(operation => {
+          return {
+
+          }
+      });
+			namespace.unions.forEach((union) => {
+				unions.push(union);
+			});
+			namespace.enums.forEach((enum_) => {
+				enums.push(enum_);
+			});
+			namespace.models.forEach((model) => {
+				types.push(model);
+			});
+		};
 		for (const [name, namespace] of service.type.namespaces) {
+			const name = getTypeName(namespace);
 		}
 
 		return {
