@@ -1,6 +1,6 @@
 import { Enum, Interface, Service, Type, Union, Violation } from "basketry";
 import { compileProgram, getOpenApi3 } from "./compile";
-import { getTypeName, Namespace } from "@typespec/compiler";
+import { getTypeName, isDeprecated, Namespace } from "@typespec/compiler";
 import { getAllHttpServices, getRoutePath } from "@typespec/http";
 
 export class TypeSpecParser {
@@ -37,21 +37,58 @@ export class TypeSpecParser {
 const [services] = getAllHttpServices(program);
 
       services.map(service => {
-service.operations.map(operation => {
+        service.operations.map(operation => {
           return {
 
           }
       });
-			namespace.unions.forEach((union) => {
-				unions.push(union);
-			});
-			namespace.enums.forEach((enum_) => {
-				enums.push(enum_);
-			});
-			namespace.models.forEach((model) => {
-				types.push(model);
-			});
-		};
+      
+      for (const [_, union] of namespace.unions) {
+        unions.push({
+          kind: "Union",
+          name: { value: getTypeName(union) },
+          discriminator: { value: "kind" },
+          members: Array.from(union.variants.values()).map(variant => ({
+            typeName: { value: getTypeName(variant) },
+            isArray: false,
+            isPrimitive: false,
+            rules: []
+          }))
+        });
+      }
+      
+      for (const [_, enum_] of namespace.enums) {
+        enums.push({
+          kind: "Enum",
+          name: { value: getTypeName(enum_) },
+          values: Array.from(enum_.members.values()).map(member => ({
+            kind: "EnumValue",
+            name: { value: member.name },
+            content: { value: member.name }
+          }))
+        });
+      }
+      
+      for (const [_, model] of namespace.models) {
+          const isTypeDeprecated = isDeprecated(program, model);
+        types.push({
+          kind: "Type",
+          name: { value: getTypeName(model) },
+          rules: [],
+          properties: Array.from(model.properties.values()).map(property => ({
+              ...property,
+              name: {
+              value: property.name,
+              // TODO: loc
+              },
+              kind: "Property"
+            })),
+            // TODO: get loc from mode.node?
+          ...(isTypeDeprecated ? { deprecated: { value: true, loc: undefined } } : {}),
+        });
+      }
+
+		});
 		for (const [name, namespace] of service.type.namespaces) {
 			const name = getTypeName(namespace);
 		}
@@ -67,9 +104,9 @@ service.operations.map(operation => {
 				title: { value: "TODO" },
 				majorVersion: { value: 1 },
 				interfaces: [],
-				types: [],
-				enums: [],
-				unions: [],
+				types,
+				enums,
+				unions,
 			},
 			violations: this.violations,
 		};
