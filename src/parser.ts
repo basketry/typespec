@@ -1,10 +1,13 @@
 import { Parser, Service, Violation } from 'basketry';
 
-export const typeSpecParser: Parser = (schema, sourcePath) =>
-  new TypeSpecParser(schema, sourcePath).parse();
+export const typeSpecParser: Parser = (sourceContent, absoluteSourcePath) =>
+  new TypeSpecParser(sourceContent, absoluteSourcePath).parse();
 
 class TypeSpecParser {
-  constructor(schema: string, private readonly sourcePath: string) {}
+  constructor(
+    private readonly sourceContent: string,
+    private readonly absoluteSourcePath: string,
+  ) {}
 
   public readonly violations: Violation[] = [];
 
@@ -16,12 +19,12 @@ class TypeSpecParser {
       service: {
         // Contant values
         kind: 'Service',
-        basketry: '1.1-rc',
-        sourcePath: this.sourcePath,
+        basketry: '0.2',
+        sourcePaths: [this.absoluteSourcePath],
 
         // TODO: parse from schema input
-        title: { value: 'TODO' },
-        majorVersion: { value: 1 },
+        title: { kind: 'StringLiteral', value: 'TODO' },
+        majorVersion: { kind: 'IntegerLiteral', value: 1 },
         interfaces: [],
         types: [],
         enums: [],
