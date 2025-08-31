@@ -1,0 +1,897 @@
+{
+  "jsonrpc": "2.0",
+  "id": 0,
+  "result": {
+    "service": {
+      "kind": "Service",
+      "basketry": "0.2",
+      "sourcePaths": [
+        "/Users/stephenkon/code/floqastinc/api-sandbox/src/main.tsp"
+      ],
+      "title": {
+        "kind": "StringLiteral",
+        "value": "DemoService",
+        "loc": "0:5;1;6;23;39;100"
+      },
+      "majorVersion": { "kind": "IntegerLiteral", "value": 1 },
+      "interfaces": [
+        {
+          "kind": "Interface",
+          "name": {
+            "kind": "StringLiteral",
+            "value": "Widgets",
+            "loc": "0:29;1;48;2;337;906"
+          },
+          "methods": [
+            {
+              "kind": "Method",
+              "name": {
+                "kind": "StringLiteral",
+                "value": "list",
+                "loc": "0:32;3;33;34;394;447"
+              },
+              "parameters": [],
+              "returns": {
+                "kind": "ReturnValue",
+                "value": {
+                  "kind": "ComplexValue",
+                  "typeName": {
+                    "kind": "StringLiteral",
+                    "value": "union1",
+                    "loc": "0:33;16;34;429;447"
+                  },
+                  "rules": []
+                }
+              },
+              "security": [],
+              "loc": "0:32;3;33;34;394;447"
+            },
+            {
+              "kind": "Method",
+              "name": {
+                "kind": "StringLiteral",
+                "value": "read",
+                "loc": "0:34;3;35;46;451;516"
+              },
+              "parameters": [
+                {
+                  "kind": "Parameter",
+                  "name": {
+                    "kind": "StringLiteral",
+                    "value": "id",
+                    "loc": "0:35;13;29;483;499"
+                  },
+                  "value": {
+                    "kind": "PrimitiveValue",
+                    "typeName": {
+                      "kind": "PrimitiveLiteral",
+                      "value": "string",
+                      "loc": "1:94;1;97;15;1921;1980"
+                    },
+                    "rules": []
+                  }
+                }
+              ],
+              "returns": {
+                "kind": "ReturnValue",
+                "value": {
+                  "kind": "ComplexValue",
+                  "typeName": {
+                    "kind": "StringLiteral",
+                    "value": "union3",
+                    "loc": "0:35;32;46;502;516"
+                  },
+                  "rules": []
+                }
+              },
+              "security": [],
+              "loc": "0:34;3;35;46;451;516"
+            },
+            {
+              "kind": "Method",
+              "name": {
+                "kind": "StringLiteral",
+                "value": "create",
+                "loc": "0:36;3;37;51;520;593"
+              },
+              "parameters": [
+                {
+                  "kind": "Parameter",
+                  "name": {
+                    "kind": "StringLiteral",
+                    "value": "body",
+                    "loc": "0:37;16;34;558;576"
+                  },
+                  "value": {
+                    "kind": "ComplexValue",
+                    "typeName": {
+                      "kind": "StringLiteral",
+                      "value": "widget",
+                      "loc": "0:8;1;12;2;102;174"
+                    },
+                    "rules": []
+                  }
+                }
+              ],
+              "returns": {
+                "kind": "ReturnValue",
+                "value": {
+                  "kind": "ComplexValue",
+                  "typeName": {
+                    "kind": "StringLiteral",
+                    "value": "union6",
+                    "loc": "0:37;37;51;579;593"
+                  },
+                  "rules": []
+                }
+              },
+              "security": [],
+              "loc": "0:36;3;37;51;520;593"
+            },
+            {
+              "kind": "Method",
+              "name": {
+                "kind": "StringLiteral",
+                "value": "update",
+                "loc": "0:38;3;42;20;597;720"
+              },
+              "parameters": [
+                {
+                  "kind": "Parameter",
+                  "name": {
+                    "kind": "StringLiteral",
+                    "value": "id",
+                    "loc": "0:40;5;21;641;657"
+                  },
+                  "value": {
+                    "kind": "PrimitiveValue",
+                    "typeName": {
+                      "kind": "PrimitiveLiteral",
+                      "value": "string",
+                      "loc": "1:94;1;97;15;1921;1980"
+                    },
+                    "rules": []
+                  }
+                },
+                {
+                  "kind": "Parameter",
+                  "name": {
+                    "kind": "StringLiteral",
+                    "value": "body",
+                    "loc": "0:41;5;41;663;699"
+                  },
+                  "value": {
+                    "kind": "ComplexValue",
+                    "typeName": {
+                      "kind": "StringLiteral",
+                      "value": "MergePatchUpdate",
+                      "loc": "3:275;1;317;5;9333;11136"
+                    },
+                    "rules": []
+                  }
+                }
+              ],
+              "returns": {
+                "kind": "ReturnValue",
+                "value": {
+                  "kind": "ComplexValue",
+                  "typeName": {
+                    "kind": "StringLiteral",
+                    "value": "union9",
+                    "loc": "0:42;6;20;706;720"
+                  },
+                  "rules": []
+                }
+              },
+              "security": [],
+              "loc": "0:38;3;42;20;597;720"
+            },
+            {
+              "kind": "Method",
+              "name": {
+                "kind": "StringLiteral",
+                "value": "delete",
+                "loc": "0:43;3;44;49;724;795"
+              },
+              "parameters": [
+                {
+                  "kind": "Parameter",
+                  "name": {
+                    "kind": "StringLiteral",
+                    "value": "id",
+                    "loc": "0:44;18;34;764;780"
+                  },
+                  "value": {
+                    "kind": "PrimitiveValue",
+                    "typeName": {
+                      "kind": "PrimitiveLiteral",
+                      "value": "string",
+                      "loc": "1:94;1;97;15;1921;1980"
+                    },
+                    "rules": []
+                  }
+                }
+              ],
+              "returns": {
+                "kind": "ReturnValue",
+                "value": {
+                  "kind": "ComplexValue",
+                  "typeName": {
+                    "kind": "StringLiteral",
+                    "value": "union10",
+                    "loc": "0:44;37;49;783;795"
+                  },
+                  "rules": []
+                }
+              },
+              "security": [],
+              "loc": "0:43;3;44;49;724;795"
+            },
+            {
+              "kind": "Method",
+              "name": {
+                "kind": "StringLiteral",
+                "value": "analyze",
+                "loc": "0:46;3;47;80;800;903"
+              },
+              "parameters": [
+                {
+                  "kind": "Parameter",
+                  "name": {
+                    "kind": "StringLiteral",
+                    "value": "id",
+                    "loc": "0:47;40;56;863;879"
+                  },
+                  "value": {
+                    "kind": "PrimitiveValue",
+                    "typeName": {
+                      "kind": "PrimitiveLiteral",
+                      "value": "string",
+                      "loc": "1:94;1;97;15;1921;1980"
+                    },
+                    "rules": []
+                  }
+                }
+              ],
+              "returns": {
+                "kind": "ReturnValue",
+                "value": {
+                  "kind": "ComplexValue",
+                  "typeName": {
+                    "kind": "StringLiteral",
+                    "value": "union11",
+                    "loc": "0:47;59;80;882;903"
+                  },
+                  "rules": []
+                }
+              },
+              "security": [],
+              "loc": "0:46;3;47;80;800;903"
+            }
+          ]
+        }
+      ],
+      "types": [
+        {
+          "kind": "Type",
+          "name": {
+            "kind": "StringLiteral",
+            "value": "AnalyzeResult",
+            "loc": "0:24;1;27;2;278;335"
+          },
+          "properties": [
+            {
+              "kind": "Property",
+              "name": {
+                "kind": "StringLiteral",
+                "value": "id",
+                "loc": "0:25;3;13;302;312"
+              },
+              "value": {
+                "kind": "PrimitiveValue",
+                "typeName": {
+                  "kind": "PrimitiveLiteral",
+                  "value": "string",
+                  "loc": "1:94;1;97;15;1921;1980"
+                },
+                "rules": []
+              },
+              "loc": "0:25;3;13;302;312"
+            },
+            {
+              "kind": "Property",
+              "name": {
+                "kind": "StringLiteral",
+                "value": "analysis",
+                "loc": "0:26;3;19;316;332"
+              },
+              "value": {
+                "kind": "PrimitiveValue",
+                "typeName": {
+                  "kind": "PrimitiveLiteral",
+                  "value": "string",
+                  "loc": "1:94;1;97;15;1921;1980"
+                },
+                "rules": []
+              },
+              "loc": "0:26;3;19;316;332"
+            }
+          ],
+          "rules": [],
+          "loc": "0:24;1;27;2;278;335"
+        },
+        {
+          "kind": "Type",
+          "name": {
+            "kind": "StringLiteral",
+            "value": "Error",
+            "loc": "0:18;1;22;2;217;276"
+          },
+          "properties": [
+            {
+              "kind": "Property",
+              "name": {
+                "kind": "StringLiteral",
+                "value": "codes",
+                "loc": "0:20;3;17;240;254"
+              },
+              "value": {
+                "kind": "PrimitiveValue",
+                "typeName": {
+                  "kind": "PrimitiveLiteral",
+                  "value": "integer",
+                  "loc": "1:33;1;36;28;649;743"
+                },
+                "isArray": {
+                  "kind": "TrueLiteral",
+                  "value": true,
+                  "loc": "1:33;1;36;28;649;743"
+                },
+                "rules": []
+              },
+              "loc": "0:20;3;17;240;254"
+            },
+            {
+              "kind": "Property",
+              "name": {
+                "kind": "StringLiteral",
+                "value": "message",
+                "loc": "0:21;3;18;258;273"
+              },
+              "value": {
+                "kind": "PrimitiveValue",
+                "typeName": {
+                  "kind": "PrimitiveLiteral",
+                  "value": "string",
+                  "loc": "1:94;1;97;15;1921;1980"
+                },
+                "rules": []
+              },
+              "loc": "0:21;3;18;258;273"
+            }
+          ],
+          "rules": [],
+          "loc": "0:18;1;22;2;217;276"
+        },
+        {
+          "kind": "Type",
+          "name": {
+            "kind": "StringLiteral",
+            "value": "MergePatchUpdate",
+            "loc": "3:275;1;317;5;9333;11136"
+          },
+          "properties": [
+            {
+              "kind": "Property",
+              "name": {
+                "kind": "StringLiteral",
+                "value": "id",
+                "loc": "0:9;3;13;119;129"
+              },
+              "value": {
+                "kind": "PrimitiveValue",
+                "typeName": {
+                  "kind": "PrimitiveLiteral",
+                  "value": "string",
+                  "loc": "1:94;1;97;15;1921;1980"
+                },
+                "rules": []
+              },
+              "loc": "0:9;3;13;119;129"
+            },
+            {
+              "kind": "Property",
+              "name": {
+                "kind": "StringLiteral",
+                "value": "weight",
+                "loc": "0:10;3;16;133;146"
+              },
+              "value": {
+                "kind": "PrimitiveValue",
+                "typeName": {
+                  "kind": "PrimitiveLiteral",
+                  "value": "integer",
+                  "loc": "1:33;1;36;28;649;743"
+                },
+                "rules": []
+              },
+              "loc": "0:10;3;16;133;146"
+            },
+            {
+              "kind": "Property",
+              "name": {
+                "kind": "StringLiteral",
+                "value": "color",
+                "loc": "0:11;3;24;150;171"
+              },
+              "value": {
+                "kind": "ComplexValue",
+                "typeName": {
+                  "kind": "StringLiteral",
+                  "value": "union7",
+                  "loc": "0:11;10;24;157;171"
+                },
+                "rules": []
+              },
+              "loc": "0:11;3;24;150;171"
+            }
+          ],
+          "rules": [],
+          "loc": "3:275;1;317;5;9333;11136"
+        },
+        {
+          "kind": "Type",
+          "name": {
+            "kind": "StringLiteral",
+            "value": "widget",
+            "loc": "0:8;1;12;2;102;174"
+          },
+          "properties": [
+            {
+              "kind": "Property",
+              "name": {
+                "kind": "StringLiteral",
+                "value": "id",
+                "loc": "0:9;3;13;119;129"
+              },
+              "value": {
+                "kind": "PrimitiveValue",
+                "typeName": {
+                  "kind": "PrimitiveLiteral",
+                  "value": "string",
+                  "loc": "1:94;1;97;15;1921;1980"
+                },
+                "rules": []
+              },
+              "loc": "0:9;3;13;119;129"
+            },
+            {
+              "kind": "Property",
+              "name": {
+                "kind": "StringLiteral",
+                "value": "weight",
+                "loc": "0:10;3;16;133;146"
+              },
+              "value": {
+                "kind": "PrimitiveValue",
+                "typeName": {
+                  "kind": "PrimitiveLiteral",
+                  "value": "integer",
+                  "loc": "1:33;1;36;28;649;743"
+                },
+                "rules": []
+              },
+              "loc": "0:10;3;16;133;146"
+            },
+            {
+              "kind": "Property",
+              "name": {
+                "kind": "StringLiteral",
+                "value": "color",
+                "loc": "0:11;3;24;150;171"
+              },
+              "value": {
+                "kind": "ComplexValue",
+                "typeName": {
+                  "kind": "StringLiteral",
+                  "value": "union0",
+                  "loc": "0:11;10;24;157;171"
+                },
+                "rules": []
+              },
+              "loc": "0:11;3;24;150;171"
+            }
+          ],
+          "rules": [],
+          "loc": "0:8;1;12;2;102;174"
+        },
+        {
+          "kind": "Type",
+          "name": {
+            "kind": "StringLiteral",
+            "value": "WidgetList",
+            "loc": "0:14;1;16;2;176;215"
+          },
+          "properties": [
+            {
+              "kind": "Property",
+              "name": {
+                "kind": "StringLiteral",
+                "value": "items",
+                "loc": "0:15;3;18;197;212"
+              },
+              "value": {
+                "kind": "ComplexValue",
+                "typeName": {
+                  "kind": "StringLiteral",
+                  "value": "widget",
+                  "loc": "0:8;1;12;2;102;174"
+                },
+                "isArray": { "kind": "TrueLiteral", "value": true },
+                "rules": []
+              },
+              "loc": "0:15;3;18;197;212"
+            }
+          ],
+          "rules": [],
+          "loc": "0:14;1;16;2;176;215"
+        }
+      ],
+      "enums": [],
+      "unions": [
+        {
+          "kind": "SimpleUnion",
+          "name": { "kind": "StringLiteral", "value": "union0" },
+          "members": [
+            {
+              "kind": "PrimitiveValue",
+              "typeName": {
+                "kind": "PrimitiveLiteral",
+                "value": "string",
+                "loc": "2:1;1;0"
+              },
+              "constant": {
+                "kind": "StringLiteral",
+                "value": "red",
+                "loc": "2:1;1;0"
+              },
+              "rules": []
+            },
+            {
+              "kind": "PrimitiveValue",
+              "typeName": {
+                "kind": "PrimitiveLiteral",
+                "value": "string",
+                "loc": "2:1;1;0"
+              },
+              "constant": {
+                "kind": "StringLiteral",
+                "value": "blue",
+                "loc": "2:1;1;0"
+              },
+              "rules": []
+            }
+          ],
+          "loc": "0:11;10;24;157;171"
+        },
+        {
+          "kind": "SimpleUnion",
+          "name": { "kind": "StringLiteral", "value": "union1" },
+          "members": [
+            {
+              "kind": "ComplexValue",
+              "typeName": {
+                "kind": "StringLiteral",
+                "value": "WidgetList",
+                "loc": "0:14;1;16;2;176;215"
+              },
+              "rules": []
+            },
+            {
+              "kind": "ComplexValue",
+              "typeName": {
+                "kind": "StringLiteral",
+                "value": "Error",
+                "loc": "0:18;1;22;2;217;276"
+              },
+              "rules": []
+            }
+          ],
+          "loc": "0:33;16;34;429;447"
+        },
+        {
+          "kind": "SimpleUnion",
+          "name": { "kind": "StringLiteral", "value": "union10" },
+          "members": [
+            {
+              "kind": "ComplexValue",
+              "typeName": {
+                "kind": "StringLiteral",
+                "value": "Error",
+                "loc": "0:18;1;22;2;217;276"
+              },
+              "rules": []
+            }
+          ],
+          "loc": "0:44;37;49;783;795"
+        },
+        {
+          "kind": "SimpleUnion",
+          "name": { "kind": "StringLiteral", "value": "union11" },
+          "members": [
+            {
+              "kind": "ComplexValue",
+              "typeName": {
+                "kind": "StringLiteral",
+                "value": "AnalyzeResult",
+                "loc": "0:24;1;27;2;278;335"
+              },
+              "rules": []
+            },
+            {
+              "kind": "ComplexValue",
+              "typeName": {
+                "kind": "StringLiteral",
+                "value": "Error",
+                "loc": "0:18;1;22;2;217;276"
+              },
+              "rules": []
+            }
+          ],
+          "loc": "0:47;59;80;882;903"
+        },
+        {
+          "kind": "SimpleUnion",
+          "name": { "kind": "StringLiteral", "value": "union2" },
+          "members": [
+            {
+              "kind": "PrimitiveValue",
+              "typeName": {
+                "kind": "PrimitiveLiteral",
+                "value": "string",
+                "loc": "2:1;1;0"
+              },
+              "constant": {
+                "kind": "StringLiteral",
+                "value": "red",
+                "loc": "2:1;1;0"
+              },
+              "rules": []
+            },
+            {
+              "kind": "PrimitiveValue",
+              "typeName": {
+                "kind": "PrimitiveLiteral",
+                "value": "string",
+                "loc": "2:1;1;0"
+              },
+              "constant": {
+                "kind": "StringLiteral",
+                "value": "blue",
+                "loc": "2:1;1;0"
+              },
+              "rules": []
+            }
+          ],
+          "loc": "0:11;10;24;157;171"
+        },
+        {
+          "kind": "SimpleUnion",
+          "name": { "kind": "StringLiteral", "value": "union3" },
+          "members": [
+            {
+              "kind": "ComplexValue",
+              "typeName": {
+                "kind": "StringLiteral",
+                "value": "widget",
+                "loc": "0:8;1;12;2;102;174"
+              },
+              "rules": []
+            },
+            {
+              "kind": "ComplexValue",
+              "typeName": {
+                "kind": "StringLiteral",
+                "value": "Error",
+                "loc": "0:18;1;22;2;217;276"
+              },
+              "rules": []
+            }
+          ],
+          "loc": "0:35;32;46;502;516"
+        },
+        {
+          "kind": "SimpleUnion",
+          "name": { "kind": "StringLiteral", "value": "union4" },
+          "members": [
+            {
+              "kind": "PrimitiveValue",
+              "typeName": {
+                "kind": "PrimitiveLiteral",
+                "value": "string",
+                "loc": "2:1;1;0"
+              },
+              "constant": {
+                "kind": "StringLiteral",
+                "value": "red",
+                "loc": "2:1;1;0"
+              },
+              "rules": []
+            },
+            {
+              "kind": "PrimitiveValue",
+              "typeName": {
+                "kind": "PrimitiveLiteral",
+                "value": "string",
+                "loc": "2:1;1;0"
+              },
+              "constant": {
+                "kind": "StringLiteral",
+                "value": "blue",
+                "loc": "2:1;1;0"
+              },
+              "rules": []
+            }
+          ],
+          "loc": "0:11;10;24;157;171"
+        },
+        {
+          "kind": "SimpleUnion",
+          "name": { "kind": "StringLiteral", "value": "union5" },
+          "members": [
+            {
+              "kind": "PrimitiveValue",
+              "typeName": {
+                "kind": "PrimitiveLiteral",
+                "value": "string",
+                "loc": "2:1;1;0"
+              },
+              "constant": {
+                "kind": "StringLiteral",
+                "value": "red",
+                "loc": "2:1;1;0"
+              },
+              "rules": []
+            },
+            {
+              "kind": "PrimitiveValue",
+              "typeName": {
+                "kind": "PrimitiveLiteral",
+                "value": "string",
+                "loc": "2:1;1;0"
+              },
+              "constant": {
+                "kind": "StringLiteral",
+                "value": "blue",
+                "loc": "2:1;1;0"
+              },
+              "rules": []
+            }
+          ],
+          "loc": "0:11;10;24;157;171"
+        },
+        {
+          "kind": "SimpleUnion",
+          "name": { "kind": "StringLiteral", "value": "union6" },
+          "members": [
+            {
+              "kind": "ComplexValue",
+              "typeName": {
+                "kind": "StringLiteral",
+                "value": "widget",
+                "loc": "0:8;1;12;2;102;174"
+              },
+              "rules": []
+            },
+            {
+              "kind": "ComplexValue",
+              "typeName": {
+                "kind": "StringLiteral",
+                "value": "Error",
+                "loc": "0:18;1;22;2;217;276"
+              },
+              "rules": []
+            }
+          ],
+          "loc": "0:37;37;51;579;593"
+        },
+        {
+          "kind": "SimpleUnion",
+          "name": { "kind": "StringLiteral", "value": "union7" },
+          "members": [
+            {
+              "kind": "PrimitiveValue",
+              "typeName": {
+                "kind": "PrimitiveLiteral",
+                "value": "string",
+                "loc": "2:1;1;0"
+              },
+              "constant": {
+                "kind": "StringLiteral",
+                "value": "red",
+                "loc": "2:1;1;0"
+              },
+              "rules": []
+            },
+            {
+              "kind": "PrimitiveValue",
+              "typeName": {
+                "kind": "PrimitiveLiteral",
+                "value": "string",
+                "loc": "2:1;1;0"
+              },
+              "constant": {
+                "kind": "StringLiteral",
+                "value": "blue",
+                "loc": "2:1;1;0"
+              },
+              "rules": []
+            }
+          ],
+          "loc": "0:11;10;24;157;171"
+        },
+        {
+          "kind": "SimpleUnion",
+          "name": { "kind": "StringLiteral", "value": "union8" },
+          "members": [
+            {
+              "kind": "PrimitiveValue",
+              "typeName": {
+                "kind": "PrimitiveLiteral",
+                "value": "string",
+                "loc": "2:1;1;0"
+              },
+              "constant": {
+                "kind": "StringLiteral",
+                "value": "red",
+                "loc": "2:1;1;0"
+              },
+              "rules": []
+            },
+            {
+              "kind": "PrimitiveValue",
+              "typeName": {
+                "kind": "PrimitiveLiteral",
+                "value": "string",
+                "loc": "2:1;1;0"
+              },
+              "constant": {
+                "kind": "StringLiteral",
+                "value": "blue",
+                "loc": "2:1;1;0"
+              },
+              "rules": []
+            }
+          ],
+          "loc": "0:11;10;24;157;171"
+        },
+        {
+          "kind": "SimpleUnion",
+          "name": { "kind": "StringLiteral", "value": "union9" },
+          "members": [
+            {
+              "kind": "ComplexValue",
+              "typeName": {
+                "kind": "StringLiteral",
+                "value": "widget",
+                "loc": "0:8;1;12;2;102;174"
+              },
+              "rules": []
+            },
+            {
+              "kind": "ComplexValue",
+              "typeName": {
+                "kind": "StringLiteral",
+                "value": "Error",
+                "loc": "0:18;1;22;2;217;276"
+              },
+              "rules": []
+            }
+          ],
+          "loc": "0:42;6;20;706;720"
+        }
+      ]
+    },
+    "violations": []
+  }
+}
