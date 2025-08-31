@@ -1,0 +1,15 @@
+{
+  "jsonrpc": "2.0",
+  "method": "basketry.parse",
+  "id": 0,
+  "params": {
+    "context": {
+      "sourcePath": "src/main.tsp",
+      "sourceContent": ""
+    },
+    "basketry": {
+      "configPath": "/Users/stephenkon/code/floqastinc/api-sandbox/basketry.config.json",
+      "projectDirectory": "/Users/stephenkon/code/floqastinc/api-sandbox"
+    }
+  }
+}
