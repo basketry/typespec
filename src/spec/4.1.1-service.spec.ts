@@ -58,11 +58,43 @@ describe('4.1.1 Service', () => {
       expect(service.title.value).toBe('Petstore');
       expect(service.title.loc).toBeDefined();
     });
-    it.todo('parses the service title if present');
+    it('parses the service title if present', async () => {
+      // ARRANGE
+      const tsp = `
+      import "@typespec/http";
+
+      @service(#{ title: "Petstore API" })
+      namespace Petstore;
+    `;
+
+      // ACT
+      const { service, violations } = await parse(tsp);
+
+      // ASSERT
+      expect(violations).toHaveLength(0);
+      expectDefined(service);
+      expect(service.title.value).toBe('Petstore API');
+      expect(service.title.loc).toBeDefined();
+    });
   });
   describe('majorVersion', () => {
     it.todo('parses the major version if present');
-    it.todo('parses as 1 if not present');
+    it('parses as 1 if not present', async () => {
+      // ARRANGE
+      const tsp = `
+      import "@typespec/http";
+
+      namespace Petstore;
+    `;
+
+      // ACT
+      const { service, violations } = await parse(tsp);
+
+      // ASSERT
+      expect(violations).toHaveLength(0);
+      expectDefined(service);
+      expect(service.majorVersion.value).toBe(1);
+    });
   });
   describe('sourcePaths', () => {
     it.todo('includes the source path');

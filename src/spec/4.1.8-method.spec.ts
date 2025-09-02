@@ -1,8 +1,8 @@
 import { expectDefined, parse } from './test-utils.js';
 
-describe('4.1.2 Interface', () => {
+describe('4.1.8 Method', () => {
   describe('kind', () => {
-    it('parses "Interface"', async () => {
+    it('parses "Method"', async () => {
       // ARRANGE
       const tsp = `
         import "@typespec/http";
@@ -10,7 +10,9 @@ describe('4.1.2 Interface', () => {
         @service
         namespace Petstore;
 
-        interface Widgets {}
+        interface Widgets {
+          get(): string;
+        }
       `;
 
       // ACT
@@ -18,14 +20,14 @@ describe('4.1.2 Interface', () => {
 
       // ASSERT
       expect(violations).toHaveLength(0);
-      const int = service?.interfaces[0];
-      expectDefined(int);
-      expect(int.kind).toBe('Interface');
+      const method = service?.interfaces[0]?.methods[0];
+      expectDefined(method);
+      expect(method.kind).toBe('Method');
     });
   });
 
   describe('name', () => {
-    it('parses interface name', async () => {
+    it('parses the name', async () => {
       // ARRANGE
       const tsp = `
         import "@typespec/http";
@@ -33,7 +35,9 @@ describe('4.1.2 Interface', () => {
         @service
         namespace Petstore;
 
-        interface Widgets {}
+        interface Widgets {
+          get(): string;
+        }
       `;
 
       // ACT
@@ -41,14 +45,13 @@ describe('4.1.2 Interface', () => {
 
       // ASSERT
       expect(violations).toHaveLength(0);
-      const int = service?.interfaces[0];
-      expectDefined(int);
-      expect(int.name.value).toBe('Widgets');
-      expect(int.name.loc).toBeDefined();
+      const method = service?.interfaces[0]?.methods[0];
+      expectDefined(method);
+      expect(method.name.value).toBe('get');
     });
   });
 
-  describe('description', () => {
+  describe('decription', () => {
     it('is undefined when no comment is present', async () => {
       // ARRANGE
       const tsp = `
@@ -57,7 +60,9 @@ describe('4.1.2 Interface', () => {
         @service
         namespace Petstore;
 
-        interface Widgets {}
+        interface Widgets {
+          get(): string;
+        }
       `;
 
       // ACT
@@ -65,9 +70,9 @@ describe('4.1.2 Interface', () => {
 
       // ASSERT
       expect(violations).toHaveLength(0);
-      const int = service?.interfaces[0];
-      expectDefined(int);
-      expect(int.description).toBeUndefined();
+      const method = service?.interfaces[0]?.methods[0];
+      expectDefined(method);
+      expect(method.description).toBeUndefined();
     });
 
     it('parses a single comment', async () => {
@@ -78,8 +83,10 @@ describe('4.1.2 Interface', () => {
         @service
         namespace Petstore;
 
-        /** Description of the Widgets interface */
-        interface Widgets {}
+        interface Widgets {
+          /** Description of the get method */
+          get(): string;
+        }
       `;
 
       // ACT
@@ -87,11 +94,11 @@ describe('4.1.2 Interface', () => {
 
       // ASSERT
       expect(violations).toHaveLength(0);
-      const int = service?.interfaces[0];
-      expectDefined(int);
-      const description = int.description?.[0];
+      const method = service?.interfaces[0]?.methods[0];
+      expectDefined(method);
+      const description = method.description?.[0];
       expectDefined(description);
-      expect(description.value).toBe('Description of the Widgets interface');
+      expect(description.value).toBe('Description of the get method');
       expect(description.loc).toBeDefined();
     });
 
@@ -103,9 +110,11 @@ describe('4.1.2 Interface', () => {
         @service
         namespace Petstore;
 
-        /** Description of the Widgets interface */
-        /** Another description */
-        interface Widgets {}
+        interface Widgets {
+          /** Description of the get method */
+          /** Another description */
+          get(): string;
+        }
       `;
 
       // ACT
@@ -113,15 +122,15 @@ describe('4.1.2 Interface', () => {
 
       // ASSERT
       expect(violations).toHaveLength(0);
-      const int = service?.interfaces[0];
-      expectDefined(int);
-      const a = int.description?.[0];
+      const method = service?.interfaces[0]?.methods[0];
+      expectDefined(method);
 
+      const a = method.description?.[0];
       expectDefined(a);
-      expect(a.value).toBe('Description of the Widgets interface');
+      expect(a.value).toBe('Description of the get method');
       expect(a.loc).toBeDefined();
 
-      const b = int.description?.[1];
+      const b = method.description?.[1];
       expectDefined(b);
       expect(b.value).toBe('Another description');
       expect(b.loc).toBeDefined();

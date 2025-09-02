@@ -1,24 +1,28 @@
 import * as fs from 'fs/promises';
-import * as os from 'os';
 import * as path from 'path';
-import { v4 } from 'uuid';
-import { TypespecParser } from '../parser.js';
+
 import { ParseResult } from '@basketry/ir';
+import { v4 } from 'uuid';
+
+import { TypespecParser } from '../parser.js';
 
 export async function parse(tsp: string): Promise<ParseResult> {
-  const tmpDir = os.tmpdir();
+  const tmpDir = './tmp';
   const filePath = path.join(tmpDir, `basketry-typespec-testcase-${v4()}.tsp`);
+  await fs.mkdir(tmpDir, { recursive: true });
+
+  const absoluteSourcePath = path.resolve(filePath);
 
   try {
-    await fs.writeFile(filePath, tsp);
+    await fs.writeFile(absoluteSourcePath, tsp);
 
     const parser = await TypespecParser.create(
       {
-        sourcePath: filePath,
+        sourcePath: absoluteSourcePath,
         sourceContent: tsp,
       },
       {
-        projectDirectory: path.dirname(filePath),
+        projectDirectory: path.dirname(absoluteSourcePath),
       },
     );
 
@@ -26,7 +30,7 @@ export async function parse(tsp: string): Promise<ParseResult> {
 
     return await parser.parse();
   } finally {
-    await fs.unlink(filePath);
+    await fs.unlink(absoluteSourcePath);
   }
 }
 
