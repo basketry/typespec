@@ -2,7 +2,8 @@ import * as path from 'path';
 import casePkg from 'case';
 
 import * as TSP from '@typespec/compiler';
-import { getAllHttpServices, HttpService } from '@typespec/http';
+import { DocNode } from '@typespec/compiler/ast';
+import * as HTTP from '@typespec/http';
 
 import * as IR from '@basketry/ir';
 import { SourcePathState } from './source-path-state.js';
@@ -32,8 +33,12 @@ export class TypespecParser {
 
     const sourcePathState = new SourcePathState(absoluteSourcePath);
 
-    const [services, diagnostics] = getAllHttpServices(program);
-    if (services.length !== 1 || diagnostics.length) return;
+    const [services, diagnostics] = HTTP.getAllHttpServices(program);
+    if (services.length !== 1 || diagnostics.length) {
+      for (const diag of diagnostics) {
+        console.error(diag);
+      }
+    }
 
     const service = services[0];
 
@@ -49,7 +54,7 @@ export class TypespecParser {
     private readonly context: IR.ParserContext,
     private readonly basketry: IR.BasketryContext,
     private readonly program: TSP.Program,
-    private readonly service: HttpService,
+    private readonly service: HTTP.HttpService,
     private readonly sourcePathState: SourcePathState,
   ) {}
 
@@ -59,29 +64,81 @@ export class TypespecParser {
   private readonly violations: IR.Violation[] = [];
 
   public async parse(): Promise<IR.ParseResult> {
-    return {
-      service: {
-        kind: 'Service',
-        basketry: '0.2',
-        sourcePaths: Array.from(this.sourcePathState.sourcePaths),
-        title: this.parseTitle(),
-        majorVersion: this.parseMajorVersion(),
-        interfaces: this.parseInterfaces(),
-        types: Array.from(this.types.values()).sort(byName),
-        enums: Array.from(this.enums.values()).sort(byName),
-        unions: Array.from(this.unions.values()).sort(byName),
-      },
-      violations: this.violations,
-    };
+    try {
+      return {
+        service: {
+          kind: 'Service',
+          basketry: '0.2',
+          sourcePaths: Array.from(this.sourcePathState.sourcePaths),
+          title: this.parseTitle(),
+          majorVersion: this.parseMajorVersion(),
+          interfaces: this.parseInterfaces(),
+          types: Array.from(this.types.values()).sort(byName),
+          enums: Array.from(this.enums.values()).sort(byName),
+          unions: Array.from(this.unions.values()).sort(byName),
+        },
+        violations: this.violations,
+      };
+    } catch (err) {
+      console.error(err);
+      return {
+        violations: this.violations,
+      };
+    }
+  }
+
+  private parseDescription(
+    docs: readonly DocNode[] | undefined,
+  ): IR.StringLiteral[] | undefined {
+    if (!docs?.length) return undefined;
+
+    return docs
+      .flatMap((doc) => doc.content)
+      .map((content) => {
+        const loc = this.sourcePathState.getEncodedRange(
+          TSP.getSourceLocation(content),
+        );
+
+        return {
+          kind: 'StringLiteral',
+          value: content.text,
+          loc,
+        };
+      });
   }
 
   private parseTitle(): IR.StringLiteral {
-    // TODO: handle service title, fall back to namespace name
-    // TODO: encode a more precise range
+    const serviceDecorator = this.service.namespace.decorators.find(
+      (d) => d.definition?.name === '@service',
+    );
+
+    const arg = serviceDecorator?.args[0]?.value;
+
+    if (arg?.entityKind === 'Value' && arg.valueKind === 'ObjectValue') {
+      const titleProp = arg.properties.get('title');
+
+      if (
+        titleProp?.value.entityKind === 'Value' &&
+        titleProp.value.valueKind === 'StringValue'
+      ) {
+        const loc = this.sourcePathState.getEncodedRange(
+          TSP.getSourceLocation(titleProp.node?.value),
+        );
+
+        return {
+          kind: 'StringLiteral',
+          value: titleProp.value.value,
+          loc,
+        };
+      }
+    }
+
+    console;
 
     const title: IR.StringLiteral = {
       kind: 'StringLiteral',
       value: this.service.namespace.name,
+      // TODO: encode a more precise range
       loc: this.sourcePathState.getEncodedRange(
         TSP.getSourceLocation(this.service.namespace.node),
       ),
@@ -106,11 +163,133 @@ export class TypespecParser {
     return {
       kind: 'Interface',
       name: this.parseName(int),
-      description: undefined, // TODO: parse interface description
+      description: this.parseDescription(int.node?.docs),
       deprecated: undefined, // TODO: parse interface deprecated
       methods: this.parseMethods(int),
+      protocols: this.parseProtocols(int),
       meta: undefined, // TODO: parse interface meta
     };
+  }
+
+  private parseProtocols(int: TSP.Interface): IR.Protocols | undefined {
+    const http = this.parseHttpProtocol(int);
+    if (!http?.length) return undefined;
+
+    return {
+      kind: 'InterfaceProtocols',
+      http,
+    };
+  }
+
+  private parseRoutePattern(httpOp: HTTP.HttpOperation): IR.StringLiteral {
+    return {
+      kind: 'StringLiteral',
+      value: httpOp.uriTemplate,
+    };
+  }
+
+  private parseHttpProtocol(int: TSP.Interface): IR.HttpRoute[] | undefined {
+    const [httpOps] = HTTP.listHttpOperationsIn(this.program, int.namespace!, {
+      listOptions: { recursive: true },
+    });
+
+    const routeMap = new Map<string, IR.HttpRoute>();
+
+    for (const httpOp of httpOps) {
+      const pattern = this.parseRoutePattern(httpOp);
+
+      if (!routeMap.has(pattern.value)) {
+        routeMap.set(pattern.value, {
+          kind: 'HttpRoute',
+          pattern,
+          methods: [],
+        });
+      }
+
+      const route = routeMap.get(pattern.value);
+      if (route) {
+        route.methods.push(this.parseHttpMethod(httpOp));
+      }
+    }
+
+    return Array.from(routeMap.values());
+  }
+
+  private parseHttpMethod(httpOp: HTTP.HttpOperation): IR.HttpMethod {
+    const parameters = httpOp.parameters.parameters.map((param) =>
+      this.parseHttpParameter(param),
+    );
+
+    if (httpOp.parameters.body) {
+      parameters.push(this.parseHttpParameter(httpOp.parameters.body));
+    }
+
+    return {
+      kind: 'HttpMethod',
+      name: this.parseName(httpOp.operation),
+      verb: { kind: 'HttpVerbLiteral', value: httpOp.verb },
+      parameters,
+      successCode: this.parseSuccessCode(httpOp),
+      requestMediaTypes: [], // TODO: parse method request media types
+      responseMediaTypes: [], // TODO: parse method response media types
+      loc: this.sourcePathState.getEncodedRange(
+        TSP.getSourceLocation(httpOp.operation),
+      ),
+    };
+  }
+
+  private parseSuccessCode(
+    httpOp: HTTP.HttpOperation,
+  ): IR.HttpStatusCodeLiteral {
+    let value = 200;
+    for (const res of httpOp.responses) {
+      if (typeof res.statusCodes === 'number') {
+        if (res.statusCodes >= 200 && res.statusCodes < 300) {
+          value = Math.max(value, res.statusCodes);
+        }
+      } else if (typeof res.statusCodes !== 'string') {
+        this.notSupported(
+          'Status code ranges are not supported',
+          this.sourcePathState.getEncodedRange(TSP.getSourceLocation(res.type)),
+        );
+      }
+    }
+
+    return { kind: 'HttpStatusCodeLiteral', value };
+  }
+
+  private parseHttpParameter(
+    httpParam: HTTP.HttpOperationParameter | HTTP.HttpPayloadBody,
+  ): IR.HttpParameter {
+    if (typeof httpParam.type === 'string') {
+      return {
+        kind: 'HttpParameter',
+        name: this.parseName(httpParam),
+        location: {
+          kind: 'HttpLocationLiteral',
+          value: httpParam.type === 'cookie' ? 'header' : httpParam.type, // TODO: support cookies
+        },
+        arrayFormat: undefined, // TODO: parse array format
+        loc: this.sourcePathState.getEncodedRange(
+          TSP.getSourceLocation(httpParam.param),
+        ),
+      };
+    } else {
+      return {
+        kind: 'HttpParameter',
+        name: httpParam.property
+          ? this.parseName(httpParam.property)
+          : { kind: 'StringLiteral', value: 'body' },
+        location: {
+          kind: 'HttpLocationLiteral',
+          value: 'body',
+        },
+        arrayFormat: undefined, // TODO: parse array format
+        loc: this.sourcePathState.getEncodedRange(
+          TSP.getSourceLocation(httpParam.property),
+        ),
+      };
+    }
   }
 
   private parseMethods(int: TSP.Interface): IR.Method[] {
@@ -123,7 +302,7 @@ export class TypespecParser {
     return {
       kind: 'Method',
       name: this.parseName(op),
-      description: undefined, // TODO: parse method description
+      description: this.parseDescription(op.node?.docs),
       parameters: this.parseParameters(op),
       deprecated: undefined, // TODO: parse method deprecated
       returns: this.parseReturnValue(op),
