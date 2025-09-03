@@ -3,7 +3,7 @@ import {
   expectDefined,
   expectPrimitive,
   parse,
-} from './test-utils.js';
+} from '../test-utils.js';
 
 describe('4.1.8 Method', () => {
   describe('kind', () => {

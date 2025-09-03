@@ -1,4 +1,4 @@
-import { expectDefined, parse } from './test-utils.js';
+import { expectDefined, parse } from '../test-utils.js';
 
 describe('4.1.18 HTTP Route', () => {
   describe('kind', () => {
