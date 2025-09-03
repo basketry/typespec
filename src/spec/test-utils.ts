@@ -1,7 +1,12 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
-import { ParseResult } from '@basketry/ir';
+import {
+  ComplexValue,
+  MemberValue,
+  ParseResult,
+  PrimitiveValue,
+} from '@basketry/ir';
 import { v4 } from 'uuid';
 
 import { TypespecParser } from '../parser.js';
@@ -38,4 +43,16 @@ export function expectDefined<T>(
   value: T | undefined | null,
 ): asserts value is T {
   expect(value).toBeDefined();
+}
+
+export function expectComplex(
+  value: MemberValue,
+): asserts value is ComplexValue {
+  expect(value.kind).toBe('ComplexValue');
+}
+
+export function expectPrimitive(
+  value: MemberValue,
+): asserts value is PrimitiveValue {
+  expect(value.kind).toBe('PrimitiveValue');
 }

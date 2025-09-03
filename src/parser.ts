@@ -133,8 +133,6 @@ export class TypespecParser {
       }
     }
 
-    console;
-
     const title: IR.StringLiteral = {
       kind: 'StringLiteral',
       value: this.service.namespace.name,
@@ -324,6 +322,8 @@ export class TypespecParser {
   ): IR.Parameter {
     // TODO: push violation for "void" parameters
     const value: IR.MemberValue = this.parseMemberValue(property.type, {
+      isOptional: property.optional,
+      default: this.parseDefaultValue(property.defaultValue),
       defaultName: camel(
         `${op.interface?.name ?? ''}_${op.name}_${property.name}`,
       ),
@@ -336,7 +336,7 @@ export class TypespecParser {
     return {
       kind: 'Parameter',
       name: this.parseName(property),
-      description: undefined, // TODO: parse parameter description
+      description: this.parseDescription(property.node?.docs),
       deprecated: undefined, // TODO: parse parameter deprecated
       value,
       meta: undefined, // TODO: parse parameter meta
@@ -346,10 +346,71 @@ export class TypespecParser {
     };
   }
 
+  private parseDefaultValue(
+    defaultValue: TSP.Value | undefined,
+  ):
+    | IR.StringLiteral
+    | IR.NumberLiteral
+    | IR.BooleanLiteral
+    | IR.NullLiteral
+    | undefined {
+    const loc = this.sourcePathState.getEncodedRange(
+      TSP.getSourceLocation(defaultValue?.type.node),
+    );
+
+    switch (defaultValue?.valueKind) {
+      case undefined:
+        return undefined;
+      case 'StringValue':
+        return { kind: 'StringLiteral', value: defaultValue.value, loc };
+      case 'NumericValue':
+        const numericValue = defaultValue.value.asNumber();
+        if (numericValue === null) {
+          this.notSupported(
+            'Numeric default value cannot be represented without loosing precision.',
+            this.sourcePathState.getEncodedRange(
+              TSP.getSourceLocation(defaultValue?.type.node),
+            ),
+          );
+          return undefined;
+        }
+
+        return { kind: 'NumberLiteral', value: numericValue, loc };
+      case 'BooleanValue':
+        return { kind: 'BooleanLiteral', value: defaultValue.value, loc };
+      case 'NullValue':
+        return { kind: 'NullLiteral', value: null, loc };
+      default:
+        return undefined;
+    }
+  }
+
   private parseReturnValue(op: TSP.Operation): IR.ReturnValue | undefined {
-    const value = this.parseMemberValue(op.returnType, {
-      defaultName: camel(`${op.interface?.name ?? ''}_${op.name}_response`),
-    });
+    const [responses] = HTTP.getResponsesForOperation(this.program, op); // Ensure responses are computed
+
+    const responseTypes = responses
+      .flatMap((r) => r.responses)
+      .map((r) => r.body?.type)
+      .filter((x): x is TSP.Type => !!x);
+
+    if (responseTypes.length === 0) return undefined;
+
+    const defaultName = camel(
+      `${op.name}_${op.interface?.name ?? ''}_response`,
+    );
+
+    let value: IR.MemberValue | undefined;
+
+    if (responseTypes.length === 1) {
+      value = this.parseMemberValue(responseTypes[0], { defaultName });
+    } else {
+      const union = this.synthesizeUnion(responseTypes, { defaultName });
+      value = {
+        kind: 'ComplexValue',
+        typeName: union.name,
+        rules: [],
+      };
+    }
 
     if (!value) return undefined;
 
@@ -365,7 +426,16 @@ export class TypespecParser {
 
   private parseMemberValue(
     type: TSP.Type,
-    options?: { asArray?: boolean; defaultName?: string },
+    options?: {
+      asArray?: boolean;
+      isOptional?: boolean;
+      default?:
+        | IR.StringLiteral
+        | IR.NumberLiteral
+        | IR.BooleanLiteral
+        | IR.NullLiteral;
+      defaultName?: string;
+    },
   ): IR.MemberValue | undefined {
     const loc = this.sourcePathState.getEncodedRange(
       TSP.getSourceLocation(type),
@@ -378,6 +448,7 @@ export class TypespecParser {
           typeName: { kind: 'PrimitiveLiteral', value: 'boolean', loc },
           constant: { kind: 'BooleanLiteral', value: type.value, loc },
           isArray: options?.asArray ? trueLiteral(loc) : undefined,
+          isOptional: options?.isOptional ? trueLiteral(loc) : undefined,
           rules: [],
         };
       }
@@ -413,6 +484,7 @@ export class TypespecParser {
           kind: 'PrimitiveValue',
           typeName: { kind: 'PrimitiveLiteral', value, loc },
           isArray: options?.asArray ? trueLiteral(loc) : undefined,
+          isOptional: options?.isOptional ? trueLiteral(loc) : undefined,
           rules: [],
         };
       }
@@ -423,17 +495,15 @@ export class TypespecParser {
             asArray: true,
           });
         }
-        const t = this.parseType(type);
+        const t = this.parseType(type, options);
         return {
           kind: 'ComplexValue',
           typeName: t.name,
           isArray: options?.asArray ? trueLiteral() : undefined,
           rules: [],
         };
-        break;
       case 'ModelProperty':
-        this.notSupported('Model properties are not supported', loc);
-        break;
+        return this.parseMemberValue(type.type, options);
       case 'Namespace':
         this.notSupported('Namespaces are not supported', loc);
         break;
@@ -444,6 +514,7 @@ export class TypespecParser {
           typeName: { kind: 'PrimitiveLiteral', value: 'number', loc },
           constant: { kind: 'NumberLiteral', value: type.value, loc },
           isArray: options?.asArray ? trueLiteral(loc) : undefined,
+          isOptional: options?.isOptional ? trueLiteral(loc) : undefined,
           rules: [],
         };
       case 'Operation':
@@ -521,6 +592,8 @@ export class TypespecParser {
           kind: 'PrimitiveValue',
           typeName: { kind: 'PrimitiveLiteral', value, loc },
           isArray: options?.asArray ? trueLiteral(loc) : undefined,
+          isOptional: options?.isOptional ? trueLiteral(loc) : undefined,
+          default: options?.default,
           rules: [],
         };
       }
@@ -533,6 +606,7 @@ export class TypespecParser {
           typeName: { kind: 'PrimitiveLiteral', value: 'string', loc },
           constant: { kind: 'StringLiteral', value: type.value, loc },
           isArray: options?.asArray ? trueLiteral(loc) : undefined,
+          isOptional: options?.isOptional ? trueLiteral(loc) : undefined,
           rules: [],
         };
       }
@@ -556,6 +630,7 @@ export class TypespecParser {
           kind: 'ComplexValue',
           typeName: { kind: 'StringLiteral', value: union.name.value, loc },
           isArray: options?.asArray ? trueLiteral(loc) : undefined,
+          isOptional: options?.isOptional ? trueLiteral(loc) : undefined,
           rules: [],
         };
 
@@ -569,6 +644,7 @@ export class TypespecParser {
           kind: 'PrimitiveValue',
           typeName: { kind: 'PrimitiveLiteral', value: 'untyped', loc },
           isArray: options?.asArray ? trueLiteral(loc) : undefined,
+          isOptional: options?.isOptional ? trueLiteral(loc) : undefined,
           rules: [],
         };
       }
@@ -578,6 +654,7 @@ export class TypespecParser {
       kind: 'PrimitiveValue',
       typeName: { kind: 'PrimitiveLiteral', value: 'untyped', loc },
       isArray: options?.asArray ? trueLiteral(loc) : undefined,
+      isOptional: options?.isOptional ? trueLiteral(loc) : undefined,
       rules: [],
     };
   }
@@ -586,18 +663,36 @@ export class TypespecParser {
     union: TSP.Union,
     options?: { defaultName?: string },
   ): IR.Union {
+    const variantTypes = Array.from(union.variants.values()).map((v) => v.type);
+    const sourceLocation = TSP.getSourceLocation(union.node);
+
+    return this.synthesizeUnion(variantTypes, {
+      ...options,
+      sourceLocation,
+      name: union.name
+        ? this.parseName({ name: union.name, node: union.node })
+        : undefined,
+    });
+  }
+
+  private synthesizeUnion(
+    variantTypes: TSP.Type[],
+    options?: {
+      defaultName?: string;
+      name?: IR.StringLiteral;
+      sourceLocation?: TSP.SourceLocation;
+    },
+  ): IR.Union {
     const members: IR.MemberValue[] = [];
-    union.variants.forEach((variant) => {
-      const member = this.parseMemberValue(variant.type);
+    variantTypes.forEach((variant) => {
+      const member = this.parseMemberValue(variant);
       if (member) members.push(member);
     });
 
-    const name: IR.StringLiteral = union.name
-      ? this.parseName({ name: union.name, node: union.node })
-      : {
-          kind: 'StringLiteral',
-          value: options?.defaultName ?? `union${this.unions.size}`,
-        };
+    const name = options?.name ?? {
+      kind: 'StringLiteral',
+      value: options?.defaultName ?? `union${this.unions.size}`,
+    };
 
     const u: IR.Union = {
       kind: 'SimpleUnion',
@@ -607,15 +702,16 @@ export class TypespecParser {
       deprecated: undefined, // TODO: handle deprecation
       disjunction: undefined, // TODO: handle disjunction
       meta: undefined, // TODO: handle meta
-      loc: this.sourcePathState.getEncodedRange(
-        TSP.getSourceLocation(union.node),
-      ),
+      loc: this.sourcePathState.getEncodedRange(options?.sourceLocation),
     };
     this.addUnion(u);
     return u;
   }
 
-  private parseType(model: TSP.Model): IR.Type {
+  private parseType(
+    model: TSP.Model,
+    options?: { defaultName?: string },
+  ): IR.Type {
     const properties: IR.Property[] = [];
 
     for (const [, prop] of model.properties) {
@@ -625,7 +721,7 @@ export class TypespecParser {
 
     const t: IR.Type = {
       kind: 'Type',
-      name: this.parseName(model),
+      name: this.parseName(model, options),
       description: undefined, // TODO: handle description
       properties,
       mapProperties: undefined, // TODO: handle mapProperties
@@ -648,6 +744,8 @@ export class TypespecParser {
       name: this.parseName(prop),
       description: undefined, // TODO: handle description
       value: this.parseMemberValue(prop.type, {
+        isOptional: prop.optional,
+        default: this.parseDefaultValue(prop.defaultValue),
         defaultName: camel(`${prop.model?.name ?? ''}_${prop.name}`),
       }) ?? {
         // TODO: emit violation for this fallback
@@ -663,19 +761,29 @@ export class TypespecParser {
     };
   }
 
-  private parseName(named: {
-    name: string;
-    node?: TSP.DiagnosticTarget;
-  }): IR.StringLiteral {
-    return {
-      kind: 'StringLiteral',
-      value: named.name,
-      loc: named.node
-        ? this.sourcePathState.getEncodedRange(
-            TSP.getSourceLocation(named.node),
-          )
-        : undefined,
-    };
+  private parseName(
+    named: {
+      name: string;
+      node?: TSP.DiagnosticTarget;
+    },
+    options?: { defaultName?: string },
+  ): IR.StringLiteral {
+    if (named.name === '') {
+      return {
+        kind: 'StringLiteral',
+        value: options?.defaultName ?? `type${this.types.size}`,
+      };
+    } else {
+      return {
+        kind: 'StringLiteral',
+        value: named.name,
+        loc: named.node
+          ? this.sourcePathState.getEncodedRange(
+              TSP.getSourceLocation(named.node),
+            )
+          : undefined,
+      };
+    }
   }
 
   private addType(type: IR.Type): void {

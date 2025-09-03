@@ -136,4 +136,29 @@ describe('4.1.8 Method', () => {
       expect(b.loc).toBeDefined();
     });
   });
+
+  describe('returns', () => {
+    it('is undefined when the return type is void', async () => {
+      // ARRANGE
+      const tsp = `
+        import "@typespec/http";
+
+        @service
+        namespace Petstore;
+
+        interface Widgets {
+          get(): void;
+        }
+      `;
+
+      // ACT
+      const { service } = await parse(tsp);
+
+      // ASSERT
+      const method = service?.interfaces[0]?.methods[0];
+      expectDefined(method);
+
+      expect(method.returns).toBeUndefined();
+    });
+  });
 });
