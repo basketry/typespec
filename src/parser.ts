@@ -320,17 +320,20 @@ export class TypespecParser {
     property: TSP.ModelProperty,
     op: TSP.Operation,
   ): IR.Parameter {
+    const rules = this.parseRules(property);
+
     // TODO: push violation for "void" parameters
     const value: IR.MemberValue = this.parseMemberValue(property.type, {
       isOptional: property.optional,
       default: this.parseDefaultValue(property.defaultValue),
+      rules,
       defaultName: camel(
         `${op.interface?.name ?? ''}_${op.name}_${property.name}`,
       ),
     }) ?? {
       kind: 'PrimitiveValue',
       typeName: { kind: 'PrimitiveLiteral', value: 'untyped' },
-      rules: [],
+      rules,
     };
 
     return {
@@ -434,6 +437,7 @@ export class TypespecParser {
         | IR.NumberLiteral
         | IR.BooleanLiteral
         | IR.NullLiteral;
+      rules?: IR.ValidationRule[];
       defaultName?: string;
     },
   ): IR.MemberValue | undefined {
@@ -594,7 +598,7 @@ export class TypespecParser {
           isArray: options?.asArray ? trueLiteral(loc) : undefined,
           isOptional: options?.isOptional ? trueLiteral(loc) : undefined,
           default: options?.default,
-          rules: [],
+          rules: options?.rules ?? [],
         };
       }
       case 'ScalarConstructor':
@@ -739,6 +743,7 @@ export class TypespecParser {
   }
 
   private parseProperty(prop: TSP.ModelProperty): IR.Property {
+    const rules = this.parseRules(prop);
     return {
       kind: 'Property',
       name: this.parseName(prop),
@@ -746,12 +751,13 @@ export class TypespecParser {
       value: this.parseMemberValue(prop.type, {
         isOptional: prop.optional,
         default: this.parseDefaultValue(prop.defaultValue),
+        rules,
         defaultName: camel(`${prop.model?.name ?? ''}_${prop.name}`),
       }) ?? {
         // TODO: emit violation for this fallback
         kind: 'PrimitiveValue',
         typeName: { kind: 'PrimitiveLiteral', value: 'untyped' },
-        rules: [],
+        rules,
       },
       deprecated: undefined, // TODO: handle deprecation
       meta: undefined, // TODO: handle meta
@@ -786,6 +792,56 @@ export class TypespecParser {
     }
   }
 
+  private parseRules(target: TSP.Type): IR.ValidationRule[] {
+    return [
+      this.parseStringMaxLengthRule(target),
+      this.parseStringMinLengthRule(target),
+      this.parseStringPatternRule(target),
+    ].filter((x) => x !== undefined);
+  }
+
+  private parseStringMaxLengthRule(
+    target: TSP.Type,
+  ): IR.ValidationRule | undefined {
+    const maxLength = TSP.getMaxLength(this.program, target);
+    if (typeof maxLength === 'number') {
+      return {
+        kind: 'ValidationRule',
+        id: 'StringMaxLength',
+        length: { kind: 'NonNegativeIntegerLiteral', value: maxLength },
+      };
+    }
+    return undefined;
+  }
+
+  private parseStringMinLengthRule(
+    target: TSP.Type,
+  ): IR.ValidationRule | undefined {
+    const minLength = TSP.getMinLength(this.program, target);
+    if (typeof minLength === 'number') {
+      return {
+        kind: 'ValidationRule',
+        id: 'StringMinLength',
+        length: { kind: 'NonNegativeIntegerLiteral', value: minLength },
+      };
+    }
+    return undefined;
+  }
+
+  private parseStringPatternRule(
+    target: TSP.Type,
+  ): IR.ValidationRule | undefined {
+    const pattern = TSP.getPattern(this.program, target);
+    if (typeof pattern === 'string') {
+      return {
+        kind: 'ValidationRule',
+        id: 'StringPattern',
+        pattern: { kind: 'NonEmptyStringLiteral', value: pattern },
+      };
+    }
+    return undefined;
+  }
+
   private addType(type: IR.Type): void {
     const key = snake(type.name.value);
     if (!this.types.has(key)) this.types.set(key, type);
@@ -800,6 +856,7 @@ export class TypespecParser {
     const key = snake(union.name.value);
     if (!this.unions.has(key)) this.unions.set(key, union);
   }
+
   private notSupported(message: string, loc?: string): void {
     const { sourceIndex, range } = decodeRange(loc);
     const sourcePath = this.sourcePathState.sourcePaths[sourceIndex];
