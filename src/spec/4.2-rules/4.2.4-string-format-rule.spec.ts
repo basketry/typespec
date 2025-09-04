@@ -1,9 +1,9 @@
 import { parse } from '../test-utils.js';
 import { expectRuleId } from './rule-utils.js';
 
-describe('4.2.3 StringPatternRule', () => {
+describe('4.2.4 StringFormatRule', () => {
   describe('parameters', () => {
-    it('parses a string pattern rule', async () => {
+    it('parses a string format rule', async () => {
       // ARRANGE
       const tsp = `
         import "@typespec/http";
@@ -12,7 +12,7 @@ describe('4.2.3 StringPatternRule', () => {
         namespace Petstore;
 
         interface Widgets {
-          get(@pattern("^[a-z0-9]+$") id: string): string;
+          get(@format("uri") id: string): string;
         }
       `;
 
@@ -24,13 +24,13 @@ describe('4.2.3 StringPatternRule', () => {
       const rule =
         service?.interfaces[0]?.methods[0]?.parameters[0]?.value.rules[0];
 
-      expectRuleId(rule, 'StringPattern');
-      expect(rule.pattern.value).toBe('^[a-z0-9]+$');
+      expectRuleId(rule, 'StringFormat');
+      expect(rule.format.value).toBe('uri');
     });
   });
 
   describe('properties', () => {
-    it('parses a string pattern rule', async () => {
+    it('parses a string format rule', async () => {
       // ARRANGE
       const tsp = `
         import "@typespec/http";
@@ -39,7 +39,7 @@ describe('4.2.3 StringPatternRule', () => {
         namespace Petstore;
 
         model Widget {
-          @pattern("^[a-z0-9]+$") id: string;
+          @format("uri") id: string;
         }
 
         interface Widgets {
@@ -54,8 +54,8 @@ describe('4.2.3 StringPatternRule', () => {
       expect(violations).toHaveLength(0);
       const rule = service?.types[0]?.properties[0]?.value.rules[0];
 
-      expectRuleId(rule, 'StringPattern');
-      expect(rule.pattern.value).toBe('^[a-z0-9]+$');
+      expectRuleId(rule, 'StringFormat');
+      expect(rule.format.value).toBe('uri');
     });
   });
 });

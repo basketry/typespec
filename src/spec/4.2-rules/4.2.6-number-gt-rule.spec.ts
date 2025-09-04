@@ -1,9 +1,9 @@
 import { parse } from '../test-utils.js';
 import { expectRuleId } from './rule-utils.js';
 
-describe('4.2.3 StringPatternRule', () => {
+describe('4.2.6 NumberGtRule', () => {
   describe('parameters', () => {
-    it('parses a string pattern rule', async () => {
+    it('parses a number greater than rule', async () => {
       // ARRANGE
       const tsp = `
         import "@typespec/http";
@@ -12,7 +12,7 @@ describe('4.2.3 StringPatternRule', () => {
         namespace Petstore;
 
         interface Widgets {
-          get(@pattern("^[a-z0-9]+$") id: string): string;
+          get(@minValueExclusive(1337) id: numeric): string;
         }
       `;
 
@@ -24,13 +24,13 @@ describe('4.2.3 StringPatternRule', () => {
       const rule =
         service?.interfaces[0]?.methods[0]?.parameters[0]?.value.rules[0];
 
-      expectRuleId(rule, 'StringPattern');
-      expect(rule.pattern.value).toBe('^[a-z0-9]+$');
+      expectRuleId(rule, 'NumberGT');
+      expect(rule.value.value).toBe(1337);
     });
   });
 
   describe('properties', () => {
-    it('parses a string pattern rule', async () => {
+    it('parses a number greater than rule', async () => {
       // ARRANGE
       const tsp = `
         import "@typespec/http";
@@ -39,7 +39,7 @@ describe('4.2.3 StringPatternRule', () => {
         namespace Petstore;
 
         model Widget {
-          @pattern("^[a-z0-9]+$") id: string;
+          @minValueExclusive(1337) id: numeric;
         }
 
         interface Widgets {
@@ -54,8 +54,8 @@ describe('4.2.3 StringPatternRule', () => {
       expect(violations).toHaveLength(0);
       const rule = service?.types[0]?.properties[0]?.value.rules[0];
 
-      expectRuleId(rule, 'StringPattern');
-      expect(rule.pattern.value).toBe('^[a-z0-9]+$');
+      expectRuleId(rule, 'NumberGT');
+      expect(rule.value.value).toBe(1337);
     });
   });
 });

@@ -5,7 +5,7 @@ import {
   parse,
 } from '../test-utils.js';
 
-describe('4.1.8 Method', () => {
+describe('4.1.15 Parameter', () => {
   describe('kind', () => {
     it('parses "Parameter"', async () => {
       // ARRANGE
@@ -221,10 +221,10 @@ describe('4.1.8 Method', () => {
       const param = service?.interfaces[0]?.methods[0]?.parameters[0];
       expectDefined(param);
       expectComplex(param.value);
-      expect(param.value.typeName.value).toBe('widgetsCreateWidget');
+      expect(param.value.typeName.value).toBe('createWidgetsWidget');
 
       const type = service?.types.find(
-        (t) => t.name.value === 'widgetsCreateWidget',
+        (t) => t.name.value === 'createWidgetsWidget',
       );
       expectDefined(type);
     });
@@ -260,10 +260,10 @@ describe('4.1.8 Method', () => {
       const param = service?.interfaces[0]?.methods[0]?.parameters[0];
       expectDefined(param);
       expectComplex(param.value);
-      expect(param.value.typeName.value).toBe('widgetsCreateItem');
+      expect(param.value.typeName.value).toBe('createWidgetsItem');
 
       const union = service?.unions.find(
-        (t) => t.name.value === 'widgetsCreateItem',
+        (t) => t.name.value === 'createWidgetsItem',
       );
       expectDefined(union);
     });

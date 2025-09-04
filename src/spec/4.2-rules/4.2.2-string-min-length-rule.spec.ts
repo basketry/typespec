@@ -1,7 +1,7 @@
 import { parse } from '../test-utils.js';
 import { expectRuleId } from './rule-utils.js';
 
-describe('4.2.1 StringMinLengthRule', () => {
+describe('4.2.2 StringMinLengthRule', () => {
   describe('parameters', () => {
     it('parses a string min length rule', async () => {
       // ARRANGE

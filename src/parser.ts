@@ -65,6 +65,9 @@ export class TypespecParser {
 
   public async parse(): Promise<IR.ParseResult> {
     try {
+      this.parseTypes();
+      this.parseEnums();
+
       return {
         service: {
           kind: 'Service',
@@ -149,6 +152,18 @@ export class TypespecParser {
     // TODO: handle service major version, fall back to 1
 
     return { kind: 'IntegerLiteral', value: 1 };
+  }
+
+  private parseTypes(): IR.Type[] {
+    return Array.from(this.service.namespace.models.values()).map((model) =>
+      this.parseType(model),
+    );
+  }
+
+  private parseEnums(): IR.Enum[] {
+    return Array.from(this.service.namespace.enums.values()).map((enm) =>
+      this.parseEnum(enm),
+    );
   }
 
   private parseInterfaces(): IR.Interface[] {
@@ -328,7 +343,7 @@ export class TypespecParser {
       default: this.parseDefaultValue(property.defaultValue),
       rules,
       defaultName: camel(
-        `${op.interface?.name ?? ''}_${op.name}_${property.name}`,
+        `${op.name}_${op.interface?.name ?? ''}_${property.name}`,
       ),
     }) ?? {
       kind: 'PrimitiveValue',
@@ -460,7 +475,14 @@ export class TypespecParser {
         this.notSupported('Decorators are not supported', loc);
         break;
       case 'Enum':
-        this.notSupported('Enums are not supported', loc);
+        const e = this.parseEnum(type);
+
+        return {
+          kind: 'ComplexValue',
+          typeName: e.name,
+          isArray: options?.asArray ? trueLiteral() : undefined,
+          rules: [],
+        };
         break;
       case 'EnumMember':
         this.notSupported('Enum members are not supported', loc);
@@ -726,9 +748,9 @@ export class TypespecParser {
     const t: IR.Type = {
       kind: 'Type',
       name: this.parseName(model, options),
-      description: undefined, // TODO: handle description
+      description: this.parseDescription(model.node?.docs),
       properties,
-      mapProperties: undefined, // TODO: handle mapProperties
+      mapProperties: this.parseMapProperties(model.indexer),
       rules: [],
       deprecated: undefined, // TODO: handle deprecation
       meta: undefined, // TODO: handle meta
@@ -740,6 +762,72 @@ export class TypespecParser {
     this.addType(t);
 
     return t;
+  }
+
+  private parseEnum(e: TSP.Enum): IR.Enum {
+    const members: IR.EnumMember[] = [];
+
+    for (const [, member] of e.members) {
+      const m = this.parseEnumMember(member);
+      if (m) members.push(m);
+    }
+
+    const ee: IR.Enum = {
+      kind: 'Enum',
+      name: this.parseName(e),
+      description: this.parseDescription(e.node?.docs),
+      members,
+      deprecated: undefined, // TODO: handle deprecation
+      meta: undefined, // TODO: handle meta
+      loc: this.sourcePathState.getEncodedRange(TSP.getSourceLocation(e.node)),
+    };
+
+    this.addEnum(ee);
+
+    return ee;
+  }
+
+  private parseEnumMember(member: TSP.EnumMember): IR.EnumMember {
+    return {
+      kind: 'EnumMember',
+      content: { kind: 'StringLiteral', value: member.name },
+      deprecated: undefined, // TODO: handle deprecation
+      meta: undefined, // TODO: handle meta
+      description: this.parseDescription(member.node?.docs),
+      loc: this.sourcePathState.getEncodedRange(
+        TSP.getSourceLocation(member.node),
+      ),
+    };
+  }
+
+  private parseMapProperties(
+    indexer: TSP.ModelIndexer | undefined,
+  ): IR.MapProperties | undefined {
+    if (!indexer) return undefined;
+
+    const keyType = this.parseMemberValue(indexer.key);
+    const valueType = this.parseMemberValue(indexer.value);
+
+    if (!keyType || !valueType) return undefined;
+
+    return {
+      kind: 'MapProperties',
+      key: {
+        kind: 'MapKey',
+        value: keyType,
+        loc: this.sourcePathState.getEncodedRange(
+          TSP.getSourceLocation(indexer.key),
+        ),
+      },
+      value: {
+        kind: 'MapValue',
+        value: valueType,
+        loc: this.sourcePathState.getEncodedRange(
+          TSP.getSourceLocation(indexer.value),
+        ),
+      },
+      requiredKeys: [],
+    };
   }
 
   private parseProperty(prop: TSP.ModelProperty): IR.Property {
@@ -797,6 +885,13 @@ export class TypespecParser {
       this.parseStringMaxLengthRule(target),
       this.parseStringMinLengthRule(target),
       this.parseStringPatternRule(target),
+      this.parseStringFormatRule(target),
+      this.parseNumberGtRule(target),
+      this.parseNumberGteRule(target),
+      this.parseNumberLtRule(target),
+      this.parseNumberLteRule(target),
+      this.parseArrayMaxItemsRule(target),
+      this.parseArrayMinItemsRule(target),
     ].filter((x) => x !== undefined);
   }
 
@@ -837,6 +932,96 @@ export class TypespecParser {
         kind: 'ValidationRule',
         id: 'StringPattern',
         pattern: { kind: 'NonEmptyStringLiteral', value: pattern },
+      };
+    }
+    return undefined;
+  }
+
+  private parseStringFormatRule(
+    target: TSP.Type,
+  ): IR.ValidationRule | undefined {
+    const format = TSP.getFormat(this.program, target);
+    if (typeof format === 'string') {
+      return {
+        kind: 'ValidationRule',
+        id: 'StringFormat',
+        format: { kind: 'NonEmptyStringLiteral', value: format },
+      };
+    }
+    return undefined;
+  }
+
+  private parseNumberGtRule(target: TSP.Type): IR.ValidationRule | undefined {
+    const minValue = TSP.getMinValueExclusive(this.program, target);
+    if (typeof minValue === 'number') {
+      return {
+        kind: 'ValidationRule',
+        id: 'NumberGT',
+        value: { kind: 'NumberLiteral', value: minValue },
+      };
+    }
+    return undefined;
+  }
+
+  private parseNumberGteRule(target: TSP.Type): IR.ValidationRule | undefined {
+    const minValue = TSP.getMinValue(this.program, target);
+    if (typeof minValue === 'number') {
+      return {
+        kind: 'ValidationRule',
+        id: 'NumberGTE',
+        value: { kind: 'NumberLiteral', value: minValue },
+      };
+    }
+    return undefined;
+  }
+
+  private parseNumberLtRule(target: TSP.Type): IR.ValidationRule | undefined {
+    const maxValue = TSP.getMaxValueExclusive(this.program, target);
+    if (typeof maxValue === 'number') {
+      return {
+        kind: 'ValidationRule',
+        id: 'NumberLT',
+        value: { kind: 'NumberLiteral', value: maxValue },
+      };
+    }
+    return undefined;
+  }
+
+  private parseNumberLteRule(target: TSP.Type): IR.ValidationRule | undefined {
+    const maxValue = TSP.getMaxValue(this.program, target);
+    if (typeof maxValue === 'number') {
+      return {
+        kind: 'ValidationRule',
+        id: 'NumberLTE',
+        value: { kind: 'NumberLiteral', value: maxValue },
+      };
+    }
+    return undefined;
+  }
+
+  private parseArrayMaxItemsRule(
+    target: TSP.Type,
+  ): IR.ValidationRule | undefined {
+    const maxItems = TSP.getMaxItems(this.program, target);
+    if (typeof maxItems === 'number') {
+      return {
+        kind: 'ValidationRule',
+        id: 'ArrayMaxItems',
+        max: { kind: 'NonNegativeIntegerLiteral', value: maxItems },
+      };
+    }
+    return undefined;
+  }
+
+  private parseArrayMinItemsRule(
+    target: TSP.Type,
+  ): IR.ValidationRule | undefined {
+    const minItems = TSP.getMinItems(this.program, target);
+    if (typeof minItems === 'number') {
+      return {
+        kind: 'ValidationRule',
+        id: 'ArrayMinItems',
+        min: { kind: 'NonNegativeIntegerLiteral', value: minItems },
       };
     }
     return undefined;
