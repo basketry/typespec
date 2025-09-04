@@ -24,7 +24,7 @@
     "prepack": "run-s -s build",
     "start": "node ./lib/index.js",
     "pretest": "run-s -s clean",
-    "test": "node --experimental-vm-modules node_modules/.bin/jest"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules node_modules/.bin/jest"
   },
   "keywords": [],
   "author": "Steve Konves",
