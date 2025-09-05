@@ -1,6 +1,10 @@
 *.tests.js
 *.tests.js.map
 *.tests.d.ts
+*.spec.js
+*.spec.js.map
+*.spec.d.ts
 src
 **/snapshot
+**/spec
 /*.*
