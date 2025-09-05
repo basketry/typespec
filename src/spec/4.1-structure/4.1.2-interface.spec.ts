@@ -25,7 +25,7 @@ describe('4.1.2 Interface', () => {
   });
 
   describe('name', () => {
-    it('parses interface name', async () => {
+    it('parses interface name as singular', async () => {
       // ARRANGE
       const tsp = `
         import "@typespec/http";
@@ -43,7 +43,7 @@ describe('4.1.2 Interface', () => {
       expect(violations).toHaveLength(0);
       const int = service?.interfaces[0];
       expectDefined(int);
-      expect(int.name.value).toBe('Widgets');
+      expect(int.name.value).toBe('Widget');
       expect(int.name.loc).toBeDefined();
     });
   });
