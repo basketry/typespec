@@ -1,5 +1,6 @@
 import * as path from 'path';
 import casePkg from 'case';
+import pluralizePkg from 'pluralize';
 
 import * as TSP from '@typespec/compiler';
 import { DocNode } from '@typespec/compiler/ast';
@@ -12,6 +13,7 @@ import pkg from '../package.json' with { type: 'json' };
 import { decodeRange } from 'basketry';
 
 const { camel, snake } = casePkg;
+const { singular } = pluralizePkg;
 
 export class TypespecParser {
   public static async create(
@@ -173,9 +175,17 @@ export class TypespecParser {
   }
 
   private parseInterface(int: TSP.Interface): IR.Interface {
+    const name = this.parseName(int);
+
+    const singularName = {
+      kind: name.kind,
+      value: singular(name.value),
+      loc: name.loc,
+    };
+
     return {
       kind: 'Interface',
-      name: this.parseName(int),
+      name: singularName,
       description: this.parseDescription(int.node?.docs),
       deprecated: undefined, // TODO: parse interface deprecated
       methods: this.parseMethods(int),
