@@ -353,6 +353,43 @@ describe('4.1.13 PrimitiveValue', () => {
         expectDefined(memberValue.isOptional);
         expect(memberValue.isOptional.value).toBe(true);
       });
+
+      it('parses a TrueLiteral for optional complex values', async () => {
+        // ARRANGE
+        const tsp = `
+          import "@typespec/http";
+
+          @service
+          namespace Petstore;
+
+          model Gizmo {
+            foo: string;
+          }
+
+          model Widget {
+            gizmo?: Gizmo;
+          }
+
+          interface Widgets {
+            create(widget: Widget): string;
+          }
+        `;
+
+        // ACT
+        const { service, violations } = await parse(tsp);
+
+        // ASSERT
+        expect(violations).toHaveLength(0);
+        const widgetType = service?.types.find(
+          (t) => t.name.value === 'Widget',
+        );
+        expectDefined(widgetType);
+
+        const memberValue = widgetType.properties[0]?.value;
+        expectDefined(memberValue);
+        expectDefined(memberValue.isOptional);
+        expect(memberValue.isOptional.value).toBe(true);
+      });
     });
   });
 

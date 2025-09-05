@@ -526,6 +526,7 @@ export class TypespecParser {
           kind: 'ComplexValue',
           typeName: t.name,
           isArray: options?.asArray ? trueLiteral() : undefined,
+          isOptional: options?.isOptional ? trueLiteral(loc) : undefined,
           rules: [],
         };
       case 'ModelProperty':
