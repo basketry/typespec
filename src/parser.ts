@@ -846,7 +846,7 @@ export class TypespecParser {
     return {
       kind: 'Property',
       name: this.parseName(prop),
-      description: undefined, // TODO: handle description
+      description: this.parseDescription(prop.node?.docs),
       value: this.parseMemberValue(prop.type, {
         isOptional: prop.optional,
         default: this.parseDefaultValue(prop.defaultValue),
