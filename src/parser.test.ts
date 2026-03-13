@@ -1,4 +1,5 @@
 import { validate } from 'basketry';
+import { readFileSync } from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import parser from '.';
@@ -270,4 +271,40 @@ describe('parser', () => {
       expect(primitiveVal.rules).toEqual([]);
     });
   });
+
+  describe('snapshots', () => {
+    it('recreates a valid petstore snapshot', async () => {
+      const snapshot = JSON.parse(
+        readFileSync(
+          path.join(__dirname, 'snapshot', 'petstore-snapshot.json'),
+        ).toString(),
+      );
+
+      const { service } = await parseFixture('petstore');
+      const result = JSON.parse(
+        JSON.stringify(service, removeLoc),
+      );
+
+      expect(result).toStrictEqual(snapshot);
+    });
+
+    it('recreates a valid example snapshot', async () => {
+      const snapshot = JSON.parse(
+        readFileSync(
+          path.join(__dirname, 'snapshot', 'example-snapshot.json'),
+        ).toString(),
+      );
+
+      const { service } = await parseFixture('example');
+      const result = JSON.parse(
+        JSON.stringify(service, removeLoc),
+      );
+
+      expect(result).toStrictEqual(snapshot);
+    });
+  });
 });
+
+function removeLoc(key: string, value: any): any {
+  return key === 'loc' ? undefined : value;
+}

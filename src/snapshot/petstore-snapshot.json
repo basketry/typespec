@@ -1,0 +1,533 @@
+{
+  "kind": "Service",
+  "basketry": "0.2",
+  "title": { "kind": "StringLiteral", "value": "Pet Store Service" },
+  "majorVersion": { "kind": "IntegerLiteral", "value": 1 },
+  "sourcePaths": ["main.tsp"],
+  "interfaces": [
+    {
+      "kind": "Interface",
+      "name": { "kind": "StringLiteral", "value": "Pets" },
+      "methods": [
+        {
+          "kind": "Method",
+          "name": { "kind": "StringLiteral", "value": "list" },
+          "parameters": [
+            {
+              "kind": "Parameter",
+              "name": { "kind": "StringLiteral", "value": "limit" },
+              "value": {
+                "kind": "PrimitiveValue",
+                "typeName": { "kind": "PrimitiveLiteral", "value": "integer" },
+                "rules": [],
+                "isOptional": { "kind": "TrueLiteral", "value": true }
+              }
+            },
+            {
+              "kind": "Parameter",
+              "name": { "kind": "StringLiteral", "value": "requestId" },
+              "value": {
+                "kind": "PrimitiveValue",
+                "typeName": { "kind": "PrimitiveLiteral", "value": "string" },
+                "rules": [],
+                "isOptional": { "kind": "TrueLiteral", "value": true }
+              }
+            }
+          ],
+          "security": [
+            {
+              "kind": "SecurityOption",
+              "schemes": [
+                {
+                  "kind": "BasicScheme",
+                  "type": { "value": "basic" },
+                  "name": { "kind": "StringLiteral", "value": "BearerAuth" }
+                }
+              ]
+            }
+          ],
+          "returns": {
+            "kind": "ReturnValue",
+            "value": {
+              "kind": "ComplexValue",
+              "typeName": { "kind": "StringLiteral", "value": "Pet" },
+              "rules": [],
+              "isArray": { "kind": "TrueLiteral", "value": true }
+            }
+          }
+        },
+        {
+          "kind": "Method",
+          "name": { "kind": "StringLiteral", "value": "create" },
+          "parameters": [
+            {
+              "kind": "Parameter",
+              "name": { "kind": "StringLiteral", "value": "pet" },
+              "value": {
+                "kind": "ComplexValue",
+                "typeName": { "kind": "StringLiteral", "value": "Pet" },
+                "rules": []
+              }
+            }
+          ],
+          "security": [
+            {
+              "kind": "SecurityOption",
+              "schemes": [
+                {
+                  "kind": "BasicScheme",
+                  "type": { "value": "basic" },
+                  "name": { "kind": "StringLiteral", "value": "BearerAuth" }
+                }
+              ]
+            }
+          ],
+          "returns": {
+            "kind": "ReturnValue",
+            "value": {
+              "kind": "ComplexValue",
+              "typeName": { "kind": "StringLiteral", "value": "Pet" },
+              "rules": []
+            }
+          }
+        },
+        {
+          "kind": "Method",
+          "name": { "kind": "StringLiteral", "value": "read" },
+          "parameters": [
+            {
+              "kind": "Parameter",
+              "name": { "kind": "StringLiteral", "value": "petId" },
+              "value": {
+                "kind": "PrimitiveValue",
+                "typeName": { "kind": "PrimitiveLiteral", "value": "long" },
+                "rules": []
+              }
+            }
+          ],
+          "security": [
+            {
+              "kind": "SecurityOption",
+              "schemes": [
+                {
+                  "kind": "BasicScheme",
+                  "type": { "value": "basic" },
+                  "name": { "kind": "StringLiteral", "value": "BearerAuth" }
+                }
+              ]
+            }
+          ],
+          "returns": {
+            "kind": "ReturnValue",
+            "value": {
+              "kind": "ComplexValue",
+              "typeName": { "kind": "StringLiteral", "value": "Pet" },
+              "rules": []
+            }
+          }
+        },
+        {
+          "kind": "Method",
+          "name": { "kind": "StringLiteral", "value": "update" },
+          "parameters": [
+            {
+              "kind": "Parameter",
+              "name": { "kind": "StringLiteral", "value": "petId" },
+              "value": {
+                "kind": "PrimitiveValue",
+                "typeName": { "kind": "PrimitiveLiteral", "value": "long" },
+                "rules": []
+              }
+            },
+            {
+              "kind": "Parameter",
+              "name": { "kind": "StringLiteral", "value": "pet" },
+              "value": {
+                "kind": "ComplexValue",
+                "typeName": { "kind": "StringLiteral", "value": "Pet" },
+                "rules": []
+              }
+            }
+          ],
+          "security": [
+            {
+              "kind": "SecurityOption",
+              "schemes": [
+                {
+                  "kind": "BasicScheme",
+                  "type": { "value": "basic" },
+                  "name": { "kind": "StringLiteral", "value": "BearerAuth" }
+                }
+              ]
+            }
+          ],
+          "returns": {
+            "kind": "ReturnValue",
+            "value": {
+              "kind": "ComplexValue",
+              "typeName": { "kind": "StringLiteral", "value": "Pet" },
+              "rules": []
+            }
+          }
+        },
+        {
+          "kind": "Method",
+          "name": { "kind": "StringLiteral", "value": "delete" },
+          "parameters": [
+            {
+              "kind": "Parameter",
+              "name": { "kind": "StringLiteral", "value": "petId" },
+              "value": {
+                "kind": "PrimitiveValue",
+                "typeName": { "kind": "PrimitiveLiteral", "value": "long" },
+                "rules": []
+              }
+            }
+          ],
+          "security": [
+            {
+              "kind": "SecurityOption",
+              "schemes": [
+                {
+                  "kind": "BasicScheme",
+                  "type": { "value": "basic" },
+                  "name": { "kind": "StringLiteral", "value": "BearerAuth" }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "protocols": {
+        "kind": "InterfaceProtocols",
+        "http": [
+          {
+            "kind": "HttpRoute",
+            "pattern": { "kind": "StringLiteral", "value": "/pets" },
+            "methods": [
+              {
+                "kind": "HttpMethod",
+                "name": { "kind": "StringLiteral", "value": "list" },
+                "verb": { "kind": "HttpVerbLiteral", "value": "get" },
+                "parameters": [
+                  {
+                    "kind": "HttpParameter",
+                    "name": { "kind": "StringLiteral", "value": "limit" },
+                    "location": {
+                      "kind": "HttpLocationLiteral",
+                      "value": "query"
+                    }
+                  },
+                  {
+                    "kind": "HttpParameter",
+                    "name": { "kind": "StringLiteral", "value": "requestId" },
+                    "location": {
+                      "kind": "HttpLocationLiteral",
+                      "value": "header"
+                    }
+                  }
+                ],
+                "successCode": {
+                  "kind": "HttpStatusCodeLiteral",
+                  "value": 200
+                },
+                "requestMediaTypes": [],
+                "responseMediaTypes": [
+                  { "kind": "StringLiteral", "value": "application/json" }
+                ]
+              },
+              {
+                "kind": "HttpMethod",
+                "name": { "kind": "StringLiteral", "value": "create" },
+                "verb": { "kind": "HttpVerbLiteral", "value": "post" },
+                "parameters": [
+                  {
+                    "kind": "HttpParameter",
+                    "name": { "kind": "StringLiteral", "value": "pet" },
+                    "location": {
+                      "kind": "HttpLocationLiteral",
+                      "value": "body"
+                    }
+                  }
+                ],
+                "successCode": {
+                  "kind": "HttpStatusCodeLiteral",
+                  "value": 200
+                },
+                "requestMediaTypes": [
+                  { "kind": "StringLiteral", "value": "application/json" }
+                ],
+                "responseMediaTypes": [
+                  { "kind": "StringLiteral", "value": "application/json" }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "HttpRoute",
+            "pattern": { "kind": "StringLiteral", "value": "/pets/{petId}" },
+            "methods": [
+              {
+                "kind": "HttpMethod",
+                "name": { "kind": "StringLiteral", "value": "read" },
+                "verb": { "kind": "HttpVerbLiteral", "value": "get" },
+                "parameters": [
+                  {
+                    "kind": "HttpParameter",
+                    "name": { "kind": "StringLiteral", "value": "petId" },
+                    "location": {
+                      "kind": "HttpLocationLiteral",
+                      "value": "path"
+                    }
+                  }
+                ],
+                "successCode": {
+                  "kind": "HttpStatusCodeLiteral",
+                  "value": 200
+                },
+                "requestMediaTypes": [],
+                "responseMediaTypes": [
+                  { "kind": "StringLiteral", "value": "application/json" }
+                ]
+              },
+              {
+                "kind": "HttpMethod",
+                "name": { "kind": "StringLiteral", "value": "update" },
+                "verb": { "kind": "HttpVerbLiteral", "value": "put" },
+                "parameters": [
+                  {
+                    "kind": "HttpParameter",
+                    "name": { "kind": "StringLiteral", "value": "petId" },
+                    "location": {
+                      "kind": "HttpLocationLiteral",
+                      "value": "path"
+                    }
+                  },
+                  {
+                    "kind": "HttpParameter",
+                    "name": { "kind": "StringLiteral", "value": "pet" },
+                    "location": {
+                      "kind": "HttpLocationLiteral",
+                      "value": "body"
+                    }
+                  }
+                ],
+                "successCode": {
+                  "kind": "HttpStatusCodeLiteral",
+                  "value": 200
+                },
+                "requestMediaTypes": [
+                  { "kind": "StringLiteral", "value": "application/json" }
+                ],
+                "responseMediaTypes": [
+                  { "kind": "StringLiteral", "value": "application/json" }
+                ]
+              },
+              {
+                "kind": "HttpMethod",
+                "name": { "kind": "StringLiteral", "value": "delete" },
+                "verb": { "kind": "HttpVerbLiteral", "value": "delete" },
+                "parameters": [
+                  {
+                    "kind": "HttpParameter",
+                    "name": { "kind": "StringLiteral", "value": "petId" },
+                    "location": {
+                      "kind": "HttpLocationLiteral",
+                      "value": "path"
+                    }
+                  }
+                ],
+                "successCode": {
+                  "kind": "HttpStatusCodeLiteral",
+                  "value": 204
+                },
+                "requestMediaTypes": [],
+                "responseMediaTypes": []
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "Interface",
+      "name": { "kind": "StringLiteral", "value": "Owners" },
+      "methods": [
+        {
+          "kind": "Method",
+          "name": { "kind": "StringLiteral", "value": "read" },
+          "parameters": [
+            {
+              "kind": "Parameter",
+              "name": { "kind": "StringLiteral", "value": "ownerId" },
+              "value": {
+                "kind": "PrimitiveValue",
+                "typeName": { "kind": "PrimitiveLiteral", "value": "long" },
+                "rules": []
+              }
+            }
+          ],
+          "security": [
+            {
+              "kind": "SecurityOption",
+              "schemes": [
+                {
+                  "kind": "BasicScheme",
+                  "type": { "value": "basic" },
+                  "name": { "kind": "StringLiteral", "value": "BearerAuth" }
+                }
+              ]
+            }
+          ],
+          "returns": {
+            "kind": "ReturnValue",
+            "value": {
+              "kind": "ComplexValue",
+              "typeName": { "kind": "StringLiteral", "value": "Owner" },
+              "rules": []
+            }
+          }
+        }
+      ],
+      "protocols": {
+        "kind": "InterfaceProtocols",
+        "http": [
+          {
+            "kind": "HttpRoute",
+            "pattern": {
+              "kind": "StringLiteral",
+              "value": "/owners/{ownerId}"
+            },
+            "methods": [
+              {
+                "kind": "HttpMethod",
+                "name": { "kind": "StringLiteral", "value": "read" },
+                "verb": { "kind": "HttpVerbLiteral", "value": "get" },
+                "parameters": [
+                  {
+                    "kind": "HttpParameter",
+                    "name": { "kind": "StringLiteral", "value": "ownerId" },
+                    "location": {
+                      "kind": "HttpLocationLiteral",
+                      "value": "path"
+                    }
+                  }
+                ],
+                "successCode": {
+                  "kind": "HttpStatusCodeLiteral",
+                  "value": 200
+                },
+                "requestMediaTypes": [],
+                "responseMediaTypes": [
+                  { "kind": "StringLiteral", "value": "application/json" }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "kind": "Type",
+      "name": { "kind": "StringLiteral", "value": "Pet" },
+      "properties": [
+        {
+          "kind": "Property",
+          "name": { "kind": "StringLiteral", "value": "id" },
+          "value": {
+            "kind": "PrimitiveValue",
+            "typeName": { "kind": "PrimitiveLiteral", "value": "long" },
+            "rules": []
+          }
+        },
+        {
+          "kind": "Property",
+          "name": { "kind": "StringLiteral", "value": "name" },
+          "value": {
+            "kind": "PrimitiveValue",
+            "typeName": { "kind": "PrimitiveLiteral", "value": "string" },
+            "rules": []
+          }
+        },
+        {
+          "kind": "Property",
+          "name": { "kind": "StringLiteral", "value": "tag" },
+          "value": {
+            "kind": "PrimitiveValue",
+            "typeName": { "kind": "PrimitiveLiteral", "value": "string" },
+            "rules": [],
+            "isOptional": { "kind": "TrueLiteral", "value": true }
+          }
+        },
+        {
+          "kind": "Property",
+          "name": { "kind": "StringLiteral", "value": "status" },
+          "value": {
+            "kind": "ComplexValue",
+            "typeName": { "kind": "StringLiteral", "value": "PetStatus" },
+            "rules": []
+          }
+        }
+      ],
+      "rules": []
+    },
+    {
+      "kind": "Type",
+      "name": { "kind": "StringLiteral", "value": "Owner" },
+      "properties": [
+        {
+          "kind": "Property",
+          "name": { "kind": "StringLiteral", "value": "id" },
+          "value": {
+            "kind": "PrimitiveValue",
+            "typeName": { "kind": "PrimitiveLiteral", "value": "long" },
+            "rules": []
+          }
+        },
+        {
+          "kind": "Property",
+          "name": { "kind": "StringLiteral", "value": "name" },
+          "value": {
+            "kind": "PrimitiveValue",
+            "typeName": { "kind": "PrimitiveLiteral", "value": "string" },
+            "rules": []
+          }
+        },
+        {
+          "kind": "Property",
+          "name": { "kind": "StringLiteral", "value": "email" },
+          "value": {
+            "kind": "PrimitiveValue",
+            "typeName": { "kind": "PrimitiveLiteral", "value": "string" },
+            "rules": [],
+            "isOptional": { "kind": "TrueLiteral", "value": true }
+          }
+        }
+      ],
+      "rules": []
+    }
+  ],
+  "enums": [
+    {
+      "kind": "Enum",
+      "name": { "kind": "StringLiteral", "value": "PetStatus" },
+      "members": [
+        {
+          "kind": "EnumMember",
+          "content": { "kind": "StringLiteral", "value": "available" }
+        },
+        {
+          "kind": "EnumMember",
+          "content": { "kind": "StringLiteral", "value": "pending" }
+        },
+        {
+          "kind": "EnumMember",
+          "content": { "kind": "StringLiteral", "value": "sold" }
+        }
+      ]
+    }
+  ],
+  "unions": []
+}
