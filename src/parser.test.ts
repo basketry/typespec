@@ -8,7 +8,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function parseFixture(name: string) {
-  const absoluteSourcePath = path.resolve(__dirname, 'snapshot', name, 'main.tsp');
+  const absoluteSourcePath = path.resolve(
+    __dirname,
+    'snapshot',
+    name,
+    'main.tsp',
+  );
   return parser('', absoluteSourcePath);
 }
 
@@ -49,7 +54,10 @@ describe('parser', () => {
     const { service } = await parseFixture('petstore');
     const petType = service.types.find((t) => t.name.value === 'Pet');
     const tagProp = petType?.properties.find((p) => p.name.value === 'tag');
-    expect(tagProp?.value.isOptional).toEqual({ kind: 'TrueLiteral', value: true });
+    expect(tagProp?.value.isOptional).toEqual({
+      kind: 'TrueLiteral',
+      value: true,
+    });
   });
 
   it('all referenced type names exist in types/enums/unions', async () => {
@@ -81,7 +89,16 @@ describe('parser', () => {
       for (const route of iface.protocols!.http!) {
         expect(route.pattern.value).toMatch(/^\//);
         for (const method of route.methods) {
-          expect(['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace']).toContain(method.verb.value);
+          expect([
+            'get',
+            'post',
+            'put',
+            'patch',
+            'delete',
+            'head',
+            'options',
+            'trace',
+          ]).toContain(method.verb.value);
         }
       }
     }
@@ -94,7 +111,9 @@ describe('parser', () => {
       .flatMap((r) => r.methods)
       .flatMap((m) => m.parameters);
     for (const param of allHttpParams) {
-      expect(['header', 'query', 'path', 'formData', 'body']).toContain(param.location.value);
+      expect(['header', 'query', 'path', 'formData', 'body']).toContain(
+        param.location.value,
+      );
     }
   });
 
@@ -167,7 +186,9 @@ describe('parser', () => {
       expect(colorEnum).toBeDefined();
       expect(colorEnum!.members.length).toBe(3);
 
-      const priorityEnum = service.enums.find((e) => e.name.value === 'Priority');
+      const priorityEnum = service.enums.find(
+        (e) => e.name.value === 'Priority',
+      );
       expect(priorityEnum).toBeDefined();
       expect(priorityEnum!.members.length).toBe(3);
     });
@@ -175,22 +196,30 @@ describe('parser', () => {
     it('has named unions', async () => {
       const { service } = await parseFixture('example');
       expect(service.unions.length).toBeGreaterThan(0);
-      const stringOrInt = service.unions.find((u) => u.name.value === 'StringOrInt');
+      const stringOrInt = service.unions.find(
+        (u) => u.name.value === 'StringOrInt',
+      );
       expect(stringOrInt).toBeDefined();
     });
 
     it('has multiple interfaces', async () => {
       const { service } = await parseFixture('example');
       expect(service.interfaces.length).toBeGreaterThan(1);
-      const widgetsIface = service.interfaces.find((i) => i.name.value === 'Widgets');
+      const widgetsIface = service.interfaces.find(
+        (i) => i.name.value === 'Widgets',
+      );
       expect(widgetsIface).toBeDefined();
-      const adminIface = service.interfaces.find((i) => i.name.value === 'AdminWidgets');
+      const adminIface = service.interfaces.find(
+        (i) => i.name.value === 'AdminWidgets',
+      );
       expect(adminIface).toBeDefined();
     });
 
     it('has all HTTP verbs in Widgets interface', async () => {
       const { service } = await parseFixture('example');
-      const widgetsIface = service.interfaces.find((i) => i.name.value === 'Widgets');
+      const widgetsIface = service.interfaces.find(
+        (i) => i.name.value === 'Widgets',
+      );
       expect(widgetsIface).toBeDefined();
       const allVerbs = widgetsIface!.protocols!.http!.flatMap((r) =>
         r.methods.map((m) => m.verb.value),
@@ -205,9 +234,14 @@ describe('parser', () => {
     it('Widget has nullable deletedAt property', async () => {
       const { service } = await parseFixture('example');
       const widget = service.types.find((t) => t.name.value === 'Widget');
-      const deletedAt = widget?.properties.find((p) => p.name.value === 'deletedAt');
+      const deletedAt = widget?.properties.find(
+        (p) => p.name.value === 'deletedAt',
+      );
       expect(deletedAt).toBeDefined();
-      expect((deletedAt?.value as any).isNullable).toEqual({ kind: 'TrueLiteral', value: true });
+      expect((deletedAt?.value as any).isNullable).toEqual({
+        kind: 'TrueLiteral',
+        value: true,
+      });
     });
 
     it('Widget has array tags property', async () => {
@@ -215,7 +249,10 @@ describe('parser', () => {
       const widget = service.types.find((t) => t.name.value === 'Widget');
       const tags = widget?.properties.find((p) => p.name.value === 'tags');
       expect(tags).toBeDefined();
-      expect((tags?.value as any).isArray).toEqual({ kind: 'TrueLiteral', value: true });
+      expect((tags?.value as any).isArray).toEqual({
+        kind: 'TrueLiteral',
+        value: true,
+      });
     });
   });
 
@@ -224,18 +261,26 @@ describe('parser', () => {
       const { service } = await parseFixture('example');
 
       // Find a type with an int8 property (ScalarShowcase.tinyInt)
-      const scalarType = service.types.find((t) => t.name.value === 'ScalarShowcase');
+      const scalarType = service.types.find(
+        (t) => t.name.value === 'ScalarShowcase',
+      );
       expect(scalarType).toBeDefined();
 
-      const tinyIntProp = scalarType!.properties.find((p) => p.name.value === 'tinyInt');
+      const tinyIntProp = scalarType!.properties.find(
+        (p) => p.name.value === 'tinyInt',
+      );
       expect(tinyIntProp).toBeDefined();
       expect(tinyIntProp!.value.kind).toBe('PrimitiveValue');
 
       const primitiveVal = tinyIntProp!.value as any;
       expect(primitiveVal.typeName.value).toBe('integer');
       expect(primitiveVal.rules.length).toBeGreaterThan(0);
-      expect(primitiveVal.rules.some((r: any) => r.id === 'NumberGTE')).toBe(true);
-      expect(primitiveVal.rules.some((r: any) => r.id === 'NumberLTE')).toBe(true);
+      expect(primitiveVal.rules.some((r: any) => r.id === 'NumberGTE')).toBe(
+        true,
+      );
+      expect(primitiveVal.rules.some((r: any) => r.id === 'NumberLTE')).toBe(
+        true,
+      );
     });
 
     it('emits type-coercion violations for coerced scalars', async () => {
@@ -250,20 +295,32 @@ describe('parser', () => {
     it('maps url scalar with StringFormat uri rule', async () => {
       const { service } = await parseFixture('example');
 
-      const scalarType = service.types.find((t) => t.name.value === 'ScalarShowcase');
-      const urlProp = scalarType!.properties.find((p) => p.name.value === 'website');
+      const scalarType = service.types.find(
+        (t) => t.name.value === 'ScalarShowcase',
+      );
+      const urlProp = scalarType!.properties.find(
+        (p) => p.name.value === 'website',
+      );
       expect(urlProp).toBeDefined();
 
       const primitiveVal = urlProp!.value as any;
       expect(primitiveVal.typeName.value).toBe('string');
-      expect(primitiveVal.rules.some((r: any) => r.id === 'StringFormat' && r.format.value === 'uri')).toBe(true);
+      expect(
+        primitiveVal.rules.some(
+          (r: any) => r.id === 'StringFormat' && r.format.value === 'uri',
+        ),
+      ).toBe(true);
     });
 
     it('maps plainDate as direct (non-coerced) date', async () => {
       const { service } = await parseFixture('example');
 
-      const scalarType = service.types.find((t) => t.name.value === 'ScalarShowcase');
-      const dateProp = scalarType!.properties.find((p) => p.name.value === 'dateField');
+      const scalarType = service.types.find(
+        (t) => t.name.value === 'ScalarShowcase',
+      );
+      const dateProp = scalarType!.properties.find(
+        (p) => p.name.value === 'dateField',
+      );
       expect(dateProp).toBeDefined();
 
       const primitiveVal = dateProp!.value as any;
@@ -281,9 +338,7 @@ describe('parser', () => {
       );
 
       const { service } = await parseFixture('petstore');
-      const result = JSON.parse(
-        JSON.stringify(service, removeLoc),
-      );
+      const result = JSON.parse(JSON.stringify(service, removeLoc));
 
       expect(result).toStrictEqual(snapshot);
     });
@@ -296,9 +351,7 @@ describe('parser', () => {
       );
 
       const { service } = await parseFixture('example');
-      const result = JSON.parse(
-        JSON.stringify(service, removeLoc),
-      );
+      const result = JSON.parse(JSON.stringify(service, removeLoc));
 
       expect(result).toStrictEqual(snapshot);
     });

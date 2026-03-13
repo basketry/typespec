@@ -78,7 +78,10 @@ type LocNode = {
  * Walks up the TypeSpec AST parent chain to find the source file for a node.
  * TypeSpec AST nodes may not have a direct .file property — it's often on an ancestor.
  */
-function findSourceFile(astNode: AstNode, maxDepth = 10): SourceFile | undefined {
+function findSourceFile(
+  astNode: AstNode,
+  maxDepth = 10,
+): SourceFile | undefined {
   let current: AstNode | undefined = astNode;
   let depth = 0;
   while (current && depth < maxDepth) {

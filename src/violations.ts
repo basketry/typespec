@@ -47,7 +47,8 @@ export function missingVersion(sourcePath: string): Violation {
   return {
     code: 'typespec/missing-version',
     severity: 'warning',
-    message: 'No version information found. Consider adding a @versioned decorator.',
+    message:
+      'No version information found. Consider adding a @versioned decorator.',
     sourcePath,
     range: defaultRange,
   };
@@ -94,7 +95,9 @@ export function convertDiagnostic(
     target: unknown;
   },
   fallbackSourcePath: string,
-  resolveRange: (target: unknown) => { sourcePath: string; range: Range } | undefined,
+  resolveRange: (
+    target: unknown,
+  ) => { sourcePath: string; range: Range } | undefined,
 ): Violation {
   const resolved = resolveRange(diagnostic.target);
   return {

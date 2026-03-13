@@ -4,10 +4,10 @@ import prettierConfig from 'eslint-config-prettier';
 import importPlugin from 'eslint-plugin-import';
 
 export default [
+  { ignores: ['lib/**', 'coverage/**', 'src/snapshot/*-snapshot.json'] },
   prettierConfig,
   {
     files: ['**/*.ts', '**/*.js', '**/*.json'],
-    ignores: ['lib/**', 'coverage/**', 'src/snapshot/*-snapshot.json'],
     languageOptions: {
       parser,
     },

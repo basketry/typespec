@@ -4,10 +4,7 @@ export interface ScalarMapping {
   coerced: boolean;
 }
 
-export type ValidationRule =
-  | NumberGTERule
-  | NumberLTERule
-  | StringFormatRule;
+export type ValidationRule = NumberGTERule | NumberLTERule | StringFormatRule;
 
 interface NumberGTERule {
   kind: 'ValidationRule';

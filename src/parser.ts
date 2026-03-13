@@ -3,26 +3,21 @@ import {
   NodeHost,
   isArrayModelType,
   getService as getServiceDetails,
+  type Program,
+  type Model,
+  type Enum as TSEnum,
+  type Union as TSUnion,
+  type Scalar,
+  type Type as TSType,
+  type Namespace,
+  type Interface as TSInterface,
 } from '@typespec/compiler';
-import type {
-  Program,
-  Model,
-  Enum as TSEnum,
-  Union as TSUnion,
-  Scalar,
-  ModelProperty,
-  Type as TSType,
-  Namespace,
-  Interface as TSInterface,
-  Operation,
-} from '@typespec/compiler';
-import { getAllHttpServices, resolveAuthentication } from '@typespec/http';
-import type {
-  HttpService,
-  HttpOperation,
-  HttpAuth,
-  Authentication,
-  HttpProperty,
+import {
+  getAllHttpServices,
+  resolveAuthentication,
+  type HttpOperation,
+  type HttpAuth,
+  type Authentication,
 } from '@typespec/http';
 import type {
   Service,
@@ -47,7 +42,6 @@ import type {
   StringLiteral,
   IntegerLiteral,
   TrueLiteral,
-  ValidationRule,
 } from 'basketry';
 import { buildSourceIndex, encodeLoc } from './location';
 import { mapScalar, isKnownScalar } from './type-mapping';
@@ -57,11 +51,15 @@ import * as path from 'path';
 const TRUE_LITERAL: TrueLiteral = { kind: 'TrueLiteral', value: true };
 
 function str(value: string, loc?: string): StringLiteral {
-  return loc ? { kind: 'StringLiteral', value, loc } : { kind: 'StringLiteral', value };
+  return loc
+    ? { kind: 'StringLiteral', value, loc }
+    : { kind: 'StringLiteral', value };
 }
 
 function int(value: number, loc?: string): IntegerLiteral {
-  return loc ? { kind: 'IntegerLiteral', value, loc } : { kind: 'IntegerLiteral', value };
+  return loc
+    ? { kind: 'IntegerLiteral', value, loc }
+    : { kind: 'IntegerLiteral', value };
 }
 
 export class TypeSpecParser {
@@ -97,18 +95,18 @@ export class TypeSpecParser {
         violations.convertDiagnostic(
           diag as any,
           this.absoluteSourcePath,
-          (target: unknown) => undefined,
+          (_target: unknown) => undefined,
         ),
       );
     }
 
     // If there are compiler errors, return empty service rather than risk garbage IR
     if (this.program.diagnostics.some((d) => d.severity === 'error')) {
-      const sourceIndex = buildSourceIndex(
+      const earlySourceIndex = buildSourceIndex(
         this.program.sourceFiles,
         this.projectDirectory,
       );
-      this.sourcePaths = sourceIndex.sourcePaths;
+      this.sourcePaths = earlySourceIndex.sourcePaths;
       return this.emptyService();
     }
 
@@ -127,7 +125,7 @@ export class TypeSpecParser {
         violations.convertDiagnostic(
           diag as any,
           this.absoluteSourcePath,
-          (target: unknown) => undefined,
+          (_target: unknown) => undefined,
         ),
       );
     }
@@ -152,7 +150,11 @@ export class TypeSpecParser {
         majorVersion = parsed;
       }
     } else {
-      this.violations.push(violations.missingVersion(this.sourcePaths[0] || this.absoluteSourcePath));
+      this.violations.push(
+        violations.missingVersion(
+          this.sourcePaths[0] || this.absoluteSourcePath,
+        ),
+      );
     }
 
     // Step 5: Extract auth info
@@ -160,7 +162,10 @@ export class TypeSpecParser {
     const defaultSecurity = this.mapAuthentication(auth.defaultAuth);
 
     // Step 6: Build interfaces from HTTP operations
-    const interfaces = this.buildInterfaces(httpService.operations, defaultSecurity);
+    const interfaces = this.buildInterfaces(
+      httpService.operations,
+      defaultSecurity,
+    );
 
     return {
       kind: 'Service',
@@ -190,16 +195,20 @@ export class TypeSpecParser {
   }
 
   private mapAuthentication(authRef: {
-    options: ReadonlyArray<{ all: ReadonlyArray<{ kind: string; auth: HttpAuth }> }>;
+    options: ReadonlyArray<{
+      all: ReadonlyArray<{ kind: string; auth: HttpAuth }>;
+    }>;
   }): SecurityOption[] {
     if (!authRef || !authRef.options) return [];
 
-    return authRef.options.map((option) => {
-      const schemes: SecurityScheme[] = option.all
-        .filter((ref) => ref.kind !== 'noAuth')
-        .map((ref) => this.mapHttpAuth(ref.auth));
-      return { kind: 'SecurityOption' as const, schemes };
-    }).filter((opt) => opt.schemes.length > 0);
+    return authRef.options
+      .map((option) => {
+        const schemes: SecurityScheme[] = option.all
+          .filter((ref) => ref.kind !== 'noAuth')
+          .map((ref) => this.mapHttpAuth(ref.auth));
+        return { kind: 'SecurityOption' as const, schemes };
+      })
+      .filter((opt) => opt.schemes.length > 0);
   }
 
   private mapHttpAuth(auth: HttpAuth): SecurityScheme {
@@ -233,7 +242,9 @@ export class TypeSpecParser {
         kind: 'OAuth2Scheme',
         type: { value: 'oauth2' as const },
         name: str(oauth2Auth.id || 'OAuth2'),
-        flows: (oauth2Auth.flows || []).map((flow: any) => this.mapOAuth2Flow(flow)),
+        flows: (oauth2Auth.flows || []).map((flow: any) =>
+          this.mapOAuth2Flow(flow),
+        ),
       };
     }
     // Fallback
@@ -374,12 +385,14 @@ export class TypeSpecParser {
   }
 
   private mapAuthenticationDirect(auth: Authentication): SecurityOption[] {
-    return auth.options.map((option) => {
-      const schemes: SecurityScheme[] = option.schemes
-        .filter((s) => s.type !== 'noAuth')
-        .map((s) => this.mapHttpAuth(s));
-      return { kind: 'SecurityOption' as const, schemes };
-    }).filter((opt) => opt.schemes.length > 0);
+    return auth.options
+      .map((option) => {
+        const schemes: SecurityScheme[] = option.schemes
+          .filter((s) => s.type !== 'noAuth')
+          .map((s) => this.mapHttpAuth(s));
+        return { kind: 'SecurityOption' as const, schemes };
+      })
+      .filter((opt) => opt.schemes.length > 0);
   }
 
   private buildParameters(op: HttpOperation): Parameter[] {
@@ -450,8 +463,14 @@ export class TypeSpecParser {
 
     // Sort by status code, pick lowest
     successResponses.sort((a, b) => {
-      const codeA = typeof a.statusCodes === 'number' ? a.statusCodes : (a.statusCodes as any).start || 200;
-      const codeB = typeof b.statusCodes === 'number' ? b.statusCodes : (b.statusCodes as any).start || 200;
+      const codeA =
+        typeof a.statusCodes === 'number'
+          ? a.statusCodes
+          : (a.statusCodes as any).start || 200;
+      const codeB =
+        typeof b.statusCodes === 'number'
+          ? b.statusCodes
+          : (b.statusCodes as any).start || 200;
       return codeA - codeB;
     });
 
@@ -525,7 +544,9 @@ export class TypeSpecParser {
               }
             }
           } else {
-            if (!responseMediaTypes.some((m) => m.value === 'application/json')) {
+            if (
+              !responseMediaTypes.some((m) => m.value === 'application/json')
+            ) {
               responseMediaTypes.push(str('application/json'));
             }
           }
@@ -546,7 +567,11 @@ export class TypeSpecParser {
 
   private getSuccessStatusCode(op: HttpOperation): number {
     for (const resp of op.responses) {
-      if (typeof resp.statusCodes === 'number' && resp.statusCodes >= 200 && resp.statusCodes < 300) {
+      if (
+        typeof resp.statusCodes === 'number' &&
+        resp.statusCodes >= 200 &&
+        resp.statusCodes < 300
+      ) {
         return resp.statusCodes;
       }
     }
@@ -562,7 +587,8 @@ export class TypeSpecParser {
       const union = tsType as TSUnion;
       const variants = Array.from(union.variants.values());
       const nonNullVariants = variants.filter(
-        (v) => !(v.type.kind === 'Intrinsic' && (v.type as any).name === 'null'),
+        (v) =>
+          !(v.type.kind === 'Intrinsic' && (v.type as any).name === 'null'),
       );
       const hasNull = nonNullVariants.length < variants.length;
 
@@ -781,11 +807,11 @@ export class TypeSpecParser {
         content = member.name;
       }
 
-      const loc = this.loc(member);
+      const memberLoc = this.loc(member);
       members.push({
         kind: 'EnumMember',
-        content: str(content, loc),
-        ...(loc ? { loc } : {}),
+        content: str(content, memberLoc),
+        ...(memberLoc ? { loc: memberLoc } : {}),
       });
     }
 

@@ -1,4 +1,4 @@
-import { mapScalar, isKnownScalar, ScalarMapping } from './type-mapping';
+import { mapScalar, isKnownScalar } from './type-mapping';
 
 describe('mapScalar - direct mappings (coerced: false)', () => {
   it.each([
