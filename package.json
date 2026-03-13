@@ -3,12 +3,18 @@
   "version": "0.1.0",
   "description": "Basketry parser for TypeSpec service definitions",
   "type": "module",
-  "main": "./lib/index.js",
+  "main": "./lib/index.cjs",
+  "exports": {
+    ".": {
+      "import": "./lib/index.js",
+      "require": "./lib/index.cjs"
+    }
+  },
   "bin": {
     "basketry-typespec": "./lib/rpc.js"
   },
   "scripts": {
-    "test": "jest",
+    "test": "vitest run",
     "clean": "run-s -s clean:*",
     "create-snapshot": "ts-node ./src/snapshot/create-snapshot.ts",
     "lint": "run-s -s lint:*",
@@ -18,7 +24,7 @@
     "start": "node ./lib/index.js",
     "prebuild": "run-s -s clean lint",
     "build": "tsc",
-    "postbuild": "chmod +x ./lib/rpc.js",
+    "postbuild": "chmod +x ./lib/rpc.js && cp ./src/index.cjs ./lib/index.cjs",
     "lint:eslint": "eslint .",
     "fix:eslint": "eslint --fix",
     "lint:prettier": "prettier -c .",
@@ -39,25 +45,23 @@
   "homepage": "https://basketry.io/docs/components/@basketry/typespec",
   "funding": "https://github.com/sponsors/basketry",
   "devDependencies": {
-    "@types/jest": "^29.5.12",
     "@types/node": "^22.7.5",
     "@typescript-eslint/eslint-plugin": "^8.32.1",
     "@typescript-eslint/parser": "^8.32.1",
     "eslint": "^9.27.0",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-import": "^2.31.0",
-    "jest": "^29.7.0",
     "npm-run-all": "^4.1.5",
     "prettier": "^3.5.3",
     "rimraf": "^3.0.2",
-    "ts-jest": "^29.1.2",
     "ts-node": "^10.4.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.0"
   },
   "dependencies": {
-    "basketry": "^0.2.1",
     "@typespec/compiler": "^1.0.0",
     "@typespec/http": "^1.0.0",
-    "@typespec/rest": "^0.80.0"
+    "@typespec/rest": "^0.80.0",
+    "basketry": "^0.2.1"
   }
 }

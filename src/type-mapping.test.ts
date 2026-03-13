@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { mapScalar, isKnownScalar } from './type-mapping';
 
 describe('mapScalar - direct mappings (coerced: false)', () => {

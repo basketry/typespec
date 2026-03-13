@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { buildSourceIndex, encodeLoc, offsetToPosition } from './location';
 
 describe('buildSourceIndex', () => {

@@ -164,7 +164,7 @@ Note that the `lint` script is run prior to `build`. Auto-fixable linting or for
 1.  Run the tests: `npm t`
 1.  Test coverage can be viewed at `/coverage/lcov-report/index.html`
 
-Note: Tests require `NODE_OPTIONS="--experimental-vm-modules"` which is configured in `jest.config.json`.
+Tests use [Vitest](https://vitest.dev/) which handles ESM natively.
 
 ### Publish a new package version
 

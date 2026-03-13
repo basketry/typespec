@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { readFileSync, writeFileSync } from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
