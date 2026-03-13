@@ -305,6 +305,29 @@ describe('parser', () => {
   });
 });
 
+describe('diagnostics', () => {
+  it('returns violations for TypeSpec compiler errors', async () => {
+    const absoluteSourcePath = path.resolve(
+      __dirname,
+      'snapshot',
+      'invalid',
+      'missing-import.tsp',
+    );
+    const { violations } = await parser('', absoluteSourcePath);
+
+    const errors = violations.filter((v) => v.severity === 'error');
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].code).toMatch(/^typespec\//);
+  });
+
+  it('returns error violation for non-existent source file', async () => {
+    const { violations } = await parser('', '/nonexistent/main.tsp');
+
+    const errors = violations.filter((v) => v.severity === 'error');
+    expect(errors.length).toBeGreaterThan(0);
+  });
+});
+
 function removeLoc(key: string, value: any): any {
   return key === 'loc' ? undefined : value;
 }
