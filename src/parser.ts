@@ -804,7 +804,7 @@ export class TypeSpecParser {
 
   private loc(node: any): string | undefined {
     try {
-      if (!node?.node?.file) return undefined;
+      if (!node?.node) return undefined;
       return encodeLoc(this.sourceIndexMap, node);
     } catch {
       return undefined;

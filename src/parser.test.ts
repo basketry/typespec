@@ -103,4 +103,118 @@ describe('parser', () => {
     const firstMethod = service.interfaces[0]?.methods[0];
     expect(firstMethod?.security.length).toBeGreaterThan(0);
   });
+
+  describe('example multi-file fixture', () => {
+    it('parses multi-file example into a valid Service', async () => {
+      const { service } = await parseFixture('example');
+      expect(service).toBeDefined();
+      expect(service.kind).toBe('Service');
+      expect(service.basketry).toBe('0.2');
+      const validation = validate(service);
+      expect(validation.errors).toEqual([]);
+    });
+
+    it('extracts example service title', async () => {
+      const { service } = await parseFixture('example');
+      expect(service.title.value).toBe('Example Service');
+    });
+
+    it('parses multi-file example with correct sourcePaths', async () => {
+      const { service } = await parseFixture('example');
+
+      expect(service.sourcePaths.length).toBeGreaterThan(1);
+      expect(service.sourcePaths).toContainEqual(
+        expect.stringContaining('models.tsp'),
+      );
+      expect(service.sourcePaths).toContainEqual(
+        expect.stringContaining('operations.tsp'),
+      );
+    });
+
+    it('multi-file nodes have different sourceIndex values in loc', async () => {
+      const { service } = await parseFixture('example');
+
+      // Collect all loc strings from types, methods, and properties
+      const typeLocs = service.types.map((t) => t.loc);
+      const methodLocs = service.interfaces
+        .flatMap((i) => i.methods)
+        .map((m) => m.loc);
+      const allLocs = [...typeLocs, ...methodLocs].filter(
+        (loc): loc is string => loc !== undefined,
+      );
+
+      // Extract sourceIndex (first number before the colon)
+      const indices = new Set(allLocs.map((loc) => loc.split(':')[0]));
+
+      // Should have more than one source index (multi-file)
+      expect(indices.size).toBeGreaterThan(1);
+    });
+
+    it('has multiple types including inheritance', async () => {
+      const { service } = await parseFixture('example');
+      expect(service.types.length).toBeGreaterThan(1);
+      const widget = service.types.find((t) => t.name.value === 'Widget');
+      expect(widget).toBeDefined();
+      // Widget extends BaseEntity, so should have inherited properties
+      const idProp = widget?.properties.find((p) => p.name.value === 'id');
+      expect(idProp).toBeDefined();
+    });
+
+    it('has both string and numeric enums', async () => {
+      const { service } = await parseFixture('example');
+      const colorEnum = service.enums.find((e) => e.name.value === 'Color');
+      expect(colorEnum).toBeDefined();
+      expect(colorEnum!.members.length).toBe(3);
+
+      const priorityEnum = service.enums.find((e) => e.name.value === 'Priority');
+      expect(priorityEnum).toBeDefined();
+      expect(priorityEnum!.members.length).toBe(3);
+    });
+
+    it('has named unions', async () => {
+      const { service } = await parseFixture('example');
+      expect(service.unions.length).toBeGreaterThan(0);
+      const stringOrInt = service.unions.find((u) => u.name.value === 'StringOrInt');
+      expect(stringOrInt).toBeDefined();
+    });
+
+    it('has multiple interfaces', async () => {
+      const { service } = await parseFixture('example');
+      expect(service.interfaces.length).toBeGreaterThan(1);
+      const widgetsIface = service.interfaces.find((i) => i.name.value === 'Widgets');
+      expect(widgetsIface).toBeDefined();
+      const adminIface = service.interfaces.find((i) => i.name.value === 'AdminWidgets');
+      expect(adminIface).toBeDefined();
+    });
+
+    it('has all HTTP verbs in Widgets interface', async () => {
+      const { service } = await parseFixture('example');
+      const widgetsIface = service.interfaces.find((i) => i.name.value === 'Widgets');
+      expect(widgetsIface).toBeDefined();
+      const allVerbs = widgetsIface!.protocols!.http!.flatMap((r) =>
+        r.methods.map((m) => m.verb.value),
+      );
+      expect(allVerbs).toContain('get');
+      expect(allVerbs).toContain('post');
+      expect(allVerbs).toContain('put');
+      expect(allVerbs).toContain('patch');
+      expect(allVerbs).toContain('delete');
+    });
+
+    it('Widget has nullable deletedAt property', async () => {
+      const { service } = await parseFixture('example');
+      const widget = service.types.find((t) => t.name.value === 'Widget');
+      const deletedAt = widget?.properties.find((p) => p.name.value === 'deletedAt');
+      expect(deletedAt).toBeDefined();
+      expect((deletedAt?.value as any).isNullable).toEqual({ kind: 'TrueLiteral', value: true });
+    });
+
+    it('Widget has array tags property', async () => {
+      const { service } = await parseFixture('example');
+      const widget = service.types.find((t) => t.name.value === 'Widget');
+      const tags = widget?.properties.find((p) => p.name.value === 'tags');
+      expect(tags).toBeDefined();
+      expect((tags?.value as any).isArray).toEqual({ kind: 'TrueLiteral', value: true });
+    });
+  });
 });

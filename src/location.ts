@@ -58,20 +58,41 @@ export function offsetToPosition(
   return { line, column, offset };
 }
 
-type LocNode = {
-  node?: {
-    pos: number;
-    end: number;
-    file: {
-      path: string;
-      text: string;
-    };
-  };
+type SourceFile = {
+  path: string;
+  text: string;
 };
+
+type AstNode = {
+  pos: number;
+  end: number;
+  file?: SourceFile;
+  parent?: AstNode;
+};
+
+type LocNode = {
+  node?: AstNode;
+};
+
+/**
+ * Walks up the TypeSpec AST parent chain to find the source file for a node.
+ * TypeSpec AST nodes may not have a direct .file property — it's often on an ancestor.
+ */
+function findSourceFile(astNode: AstNode, maxDepth = 10): SourceFile | undefined {
+  let current: AstNode | undefined = astNode;
+  let depth = 0;
+  while (current && depth < maxDepth) {
+    if (current.file) return current.file;
+    current = current.parent;
+    depth++;
+  }
+  return undefined;
+}
 
 /**
  * Encodes a TypeSpec type node's source location into Basketry's loc string format.
  * Returns undefined if no .node or if the file path is not in the sourceIndexMap.
+ * TypeSpec AST nodes may have the file on an ancestor node, so we walk the parent chain.
  */
 export function encodeLoc(
   sourceIndexMap: Map<string, number>,
@@ -79,7 +100,10 @@ export function encodeLoc(
 ): string | undefined {
   if (!node.node) return undefined;
 
-  const { pos, end, file } = node.node;
+  const { pos, end } = node.node;
+  const file = findSourceFile(node.node);
+  if (!file) return undefined;
+
   const sourceIndex = sourceIndexMap.get(file.path);
 
   if (sourceIndex === undefined) return undefined;
