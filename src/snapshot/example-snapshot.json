@@ -3,7 +3,11 @@
   "basketry": "0.2",
   "title": { "kind": "StringLiteral", "value": "Example Service" },
   "majorVersion": { "kind": "IntegerLiteral", "value": 1 },
-  "sourcePaths": ["main.tsp", "models.tsp", "operations.tsp"],
+  "sourcePaths": [
+    "/Users/kylemaz/Documents/projects/basketry-all/typespec/src/snapshot/example/main.tsp",
+    "/Users/kylemaz/Documents/projects/basketry-all/typespec/src/snapshot/example/models.tsp",
+    "/Users/kylemaz/Documents/projects/basketry-all/typespec/src/snapshot/example/operations.tsp"
+  ],
   "interfaces": [
     {
       "kind": "Interface",

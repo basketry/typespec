@@ -11,7 +11,11 @@ describe('buildSourceIndex', () => {
 
     const result = buildSourceIndex(sourceFiles, projectDirectory);
 
-    expect(result.sourcePaths).toEqual(['a.tsp', 'b.tsp', 'c.tsp']);
+    expect(result.sourcePaths).toEqual([
+      '/project/a.tsp',
+      '/project/b.tsp',
+      '/project/c.tsp',
+    ]);
     expect(result.sourceIndexMap.get('/project/a.tsp')).toBe(0);
     expect(result.sourceIndexMap.get('/project/b.tsp')).toBe(1);
     expect(result.sourceIndexMap.get('/project/c.tsp')).toBe(2);
@@ -27,7 +31,7 @@ describe('buildSourceIndex', () => {
 
     const result = buildSourceIndex(sourceFiles, projectDirectory);
 
-    expect(result.sourcePaths).toEqual(['a.tsp', 'b.tsp']);
+    expect(result.sourcePaths).toEqual(['/project/a.tsp', '/project/b.tsp']);
     expect(result.sourceIndexMap.size).toBe(2);
     expect(
       result.sourceIndexMap.has(

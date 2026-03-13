@@ -3,7 +3,9 @@
   "basketry": "0.2",
   "title": { "kind": "StringLiteral", "value": "Pet Store Service" },
   "majorVersion": { "kind": "IntegerLiteral", "value": 1 },
-  "sourcePaths": ["main.tsp"],
+  "sourcePaths": [
+    "/Users/kylemaz/Documents/projects/basketry-all/typespec/src/snapshot/petstore/main.tsp"
+  ],
   "interfaces": [
     {
       "kind": "Interface",

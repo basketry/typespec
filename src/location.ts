@@ -8,7 +8,8 @@ export interface SourceIndex {
 
 /**
  * Builds a SourceIndex from the TypeSpec compiler's program.sourceFiles map.
- * Filters out node_modules, converts paths to relative, sorts alphabetically.
+ * Filters out node_modules, sorts alphabetically by relative path, returns absolute paths.
+ * Basketry resolves sourcePaths relative to its project root, so absolute paths are needed.
  */
 export function buildSourceIndex(
   sourceFiles: Map<string, unknown>,
@@ -27,7 +28,7 @@ export function buildSourceIndex(
     .map((abs, i) => ({ abs, rel: relativePaths[i] }))
     .sort((a, b) => a.rel.localeCompare(b.rel));
 
-  const sourcePaths = pairs.map((p) => p.rel);
+  const sourcePaths = pairs.map((p) => p.abs);
   const sourceIndexMap = new Map<string, number>();
   for (let i = 0; i < pairs.length; i++) {
     sourceIndexMap.set(pairs[i].abs, i);
