@@ -102,6 +102,16 @@ export class TypeSpecParser {
       );
     }
 
+    // If there are compiler errors, return empty service rather than risk garbage IR
+    if (this.program.diagnostics.some((d) => d.severity === 'error')) {
+      const sourceIndex = buildSourceIndex(
+        this.program.sourceFiles,
+        this.projectDirectory,
+      );
+      this.sourcePaths = sourceIndex.sourcePaths;
+      return this.emptyService();
+    }
+
     // Step 2: Build source index
     const sourceIndex = buildSourceIndex(
       this.program.sourceFiles,
@@ -577,8 +587,20 @@ export class TypeSpecParser {
         return result;
       }
 
-      // Anonymous union — just use the first variant's type for simplicity
+      // Anonymous union — use the first variant's type and warn about data loss
       if (nonNullVariants.length > 0) {
+        if (nonNullVariants.length > 1) {
+          this.violations.push(
+            violations.unsupportedFeature(
+              `anonymous union with ${nonNullVariants.length} variants (only first variant used)`,
+              this.sourcePaths[0] || '',
+              {
+                start: { line: 1, column: 1, offset: 0 },
+                end: { line: 1, column: 1, offset: 0 },
+              },
+            ),
+          );
+        }
         return this.mapType(nonNullVariants[0].type, optional);
       }
     }
