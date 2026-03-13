@@ -70,3 +70,20 @@ model UpdateWidgetRequest {
   color?: Color;
   priority?: Priority;
 }
+
+// Model exercising coerced scalar types
+model ScalarShowcase {
+  tinyInt: int8;
+  smallInt: int16;
+  unsignedByte: uint8;
+  unsignedShort: uint16;
+  unsignedInt: uint32;
+  unsignedLong: uint64;
+  money: decimal;
+  money128: decimal128;
+  timeOfDay: plainTime;
+  elapsed: duration;
+  website: url;
+  data: bytes;
+  dateField: plainDate;
+}

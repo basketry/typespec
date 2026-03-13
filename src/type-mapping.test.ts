@@ -30,7 +30,6 @@ describe('mapScalar - coerced mappings (coerced: true)', () => {
     ['uint16', 'integer'],
     ['uint32', 'long'],
     ['uint64', 'long'],
-    ['float16', 'float'],
     ['decimal', 'number'],
     ['decimal128', 'number'],
     ['plainTime', 'string'],
@@ -48,12 +47,12 @@ describe('mapScalar - validation rules', () => {
     const result = mapScalar('int8');
     expect(result.rules).toContainEqual({
       kind: 'ValidationRule',
-      id: { kind: 'NonEmptyStringLiteral', value: 'NumberGTE' },
+      id: 'NumberGTE',
       value: { kind: 'NumberLiteral', value: -128 },
     });
     expect(result.rules).toContainEqual({
       kind: 'ValidationRule',
-      id: { kind: 'NonEmptyStringLiteral', value: 'NumberLTE' },
+      id: 'NumberLTE',
       value: { kind: 'NumberLiteral', value: 127 },
     });
   });
@@ -62,12 +61,12 @@ describe('mapScalar - validation rules', () => {
     const result = mapScalar('uint8');
     expect(result.rules).toContainEqual({
       kind: 'ValidationRule',
-      id: { kind: 'NonEmptyStringLiteral', value: 'NumberGTE' },
+      id: 'NumberGTE',
       value: { kind: 'NumberLiteral', value: 0 },
     });
     expect(result.rules).toContainEqual({
       kind: 'ValidationRule',
-      id: { kind: 'NonEmptyStringLiteral', value: 'NumberLTE' },
+      id: 'NumberLTE',
       value: { kind: 'NumberLiteral', value: 255 },
     });
   });
@@ -76,7 +75,7 @@ describe('mapScalar - validation rules', () => {
     const result = mapScalar('duration');
     expect(result.rules).toContainEqual({
       kind: 'ValidationRule',
-      id: { kind: 'NonEmptyStringLiteral', value: 'StringFormat' },
+      id: 'StringFormat',
       format: { kind: 'NonEmptyStringLiteral', value: 'duration' },
     });
   });
@@ -85,7 +84,7 @@ describe('mapScalar - validation rules', () => {
     const result = mapScalar('url');
     expect(result.rules).toContainEqual({
       kind: 'ValidationRule',
-      id: { kind: 'NonEmptyStringLiteral', value: 'StringFormat' },
+      id: 'StringFormat',
       format: { kind: 'NonEmptyStringLiteral', value: 'uri' },
     });
   });

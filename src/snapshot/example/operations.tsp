@@ -38,3 +38,9 @@ interface AdminWidgets {
   @get list(@query active?: boolean): WidgetPage;
   @delete purge(): void;
 }
+
+// Scalars interface - exercises coerced scalar type mappings
+@route("/scalars")
+interface Scalars {
+  @get showcase(): ScalarShowcase;
+}

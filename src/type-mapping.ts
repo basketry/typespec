@@ -11,26 +11,26 @@ export type ValidationRule =
 
 interface NumberGTERule {
   kind: 'ValidationRule';
-  id: { kind: 'NonEmptyStringLiteral'; value: 'NumberGTE' };
+  id: 'NumberGTE';
   value: { kind: 'NumberLiteral'; value: number };
 }
 
 interface NumberLTERule {
   kind: 'ValidationRule';
-  id: { kind: 'NonEmptyStringLiteral'; value: 'NumberLTE' };
+  id: 'NumberLTE';
   value: { kind: 'NumberLiteral'; value: number };
 }
 
 interface StringFormatRule {
   kind: 'ValidationRule';
-  id: { kind: 'NonEmptyStringLiteral'; value: 'StringFormat' };
+  id: 'StringFormat';
   format: { kind: 'NonEmptyStringLiteral'; value: string };
 }
 
 function numberGTE(value: number): NumberGTERule {
   return {
     kind: 'ValidationRule',
-    id: { kind: 'NonEmptyStringLiteral', value: 'NumberGTE' },
+    id: 'NumberGTE',
     value: { kind: 'NumberLiteral', value },
   };
 }
@@ -38,7 +38,7 @@ function numberGTE(value: number): NumberGTERule {
 function numberLTE(value: number): NumberLTERule {
   return {
     kind: 'ValidationRule',
-    id: { kind: 'NonEmptyStringLiteral', value: 'NumberLTE' },
+    id: 'NumberLTE',
     value: { kind: 'NumberLiteral', value },
   };
 }
@@ -46,7 +46,7 @@ function numberLTE(value: number): NumberLTERule {
 function stringFormat(format: string): StringFormatRule {
   return {
     kind: 'ValidationRule',
-    id: { kind: 'NonEmptyStringLiteral', value: 'StringFormat' },
+    id: 'StringFormat',
     format: { kind: 'NonEmptyStringLiteral', value: format },
   };
 }
@@ -96,11 +96,6 @@ const SCALAR_MAP: Record<string, ScalarMapping> = {
   uint64: {
     primitive: 'long',
     rules: [numberGTE(0)],
-    coerced: true,
-  },
-  float16: {
-    primitive: 'float',
-    rules: [],
     coerced: true,
   },
   decimal: {

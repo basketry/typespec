@@ -217,4 +217,57 @@ describe('parser', () => {
       expect((tags?.value as any).isArray).toEqual({ kind: 'TrueLiteral', value: true });
     });
   });
+
+  describe('scalar mapping', () => {
+    it('applies range constraints for int8 properties', async () => {
+      const { service } = await parseFixture('example');
+
+      // Find a type with an int8 property (ScalarShowcase.tinyInt)
+      const scalarType = service.types.find((t) => t.name.value === 'ScalarShowcase');
+      expect(scalarType).toBeDefined();
+
+      const tinyIntProp = scalarType!.properties.find((p) => p.name.value === 'tinyInt');
+      expect(tinyIntProp).toBeDefined();
+      expect(tinyIntProp!.value.kind).toBe('PrimitiveValue');
+
+      const primitiveVal = tinyIntProp!.value as any;
+      expect(primitiveVal.typeName.value).toBe('integer');
+      expect(primitiveVal.rules.length).toBeGreaterThan(0);
+      expect(primitiveVal.rules.some((r: any) => r.id === 'NumberGTE')).toBe(true);
+      expect(primitiveVal.rules.some((r: any) => r.id === 'NumberLTE')).toBe(true);
+    });
+
+    it('emits type-coercion violations for coerced scalars', async () => {
+      const { violations } = await parseFixture('example');
+
+      const coercions = violations.filter(
+        (v) => v.code === 'typespec/type-coercion',
+      );
+      expect(coercions.length).toBeGreaterThan(0);
+    });
+
+    it('maps url scalar with StringFormat uri rule', async () => {
+      const { service } = await parseFixture('example');
+
+      const scalarType = service.types.find((t) => t.name.value === 'ScalarShowcase');
+      const urlProp = scalarType!.properties.find((p) => p.name.value === 'website');
+      expect(urlProp).toBeDefined();
+
+      const primitiveVal = urlProp!.value as any;
+      expect(primitiveVal.typeName.value).toBe('string');
+      expect(primitiveVal.rules.some((r: any) => r.id === 'StringFormat' && r.format.value === 'uri')).toBe(true);
+    });
+
+    it('maps plainDate as direct (non-coerced) date', async () => {
+      const { service } = await parseFixture('example');
+
+      const scalarType = service.types.find((t) => t.name.value === 'ScalarShowcase');
+      const dateProp = scalarType!.properties.find((p) => p.name.value === 'dateField');
+      expect(dateProp).toBeDefined();
+
+      const primitiveVal = dateProp!.value as any;
+      expect(primitiveVal.typeName.value).toBe('date');
+      expect(primitiveVal.rules).toEqual([]);
+    });
+  });
 });
