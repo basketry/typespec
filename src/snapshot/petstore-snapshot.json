@@ -68,7 +68,14 @@
               "rules": [],
               "isArray": { "kind": "TrueLiteral", "value": true }
             }
-          }
+          },
+          "meta": [
+            {
+              "kind": "MetaValue",
+              "key": { "kind": "StringLiteral", "value": "auth-module-policy" },
+              "value": { "kind": "UntypedLiteral", "value": "pets:read" }
+            }
+          ]
         },
         {
           "kind": "Method",
@@ -106,7 +113,14 @@
               "typeName": { "kind": "StringLiteral", "value": "Pet" },
               "rules": []
             }
-          }
+          },
+          "meta": [
+            {
+              "kind": "MetaValue",
+              "key": { "kind": "StringLiteral", "value": "auth-module-policy" },
+              "value": { "kind": "UntypedLiteral", "value": "pets:write" }
+            }
+          ]
         },
         {
           "kind": "Method",

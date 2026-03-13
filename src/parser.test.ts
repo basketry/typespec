@@ -203,6 +203,41 @@ describe('parser', () => {
     });
   });
 
+  describe('meta from @extension decorators', () => {
+    it('maps @extension to method meta with x- prefix stripped', async () => {
+      const { service } = await parseFixture('petstore');
+      const pets = service.interfaces.find((i) => i.name.value === 'Pets');
+      const list = pets?.methods.find((m) => m.name.value === 'list');
+      expect(list?.meta).toEqual([
+        {
+          kind: 'MetaValue',
+          key: { kind: 'StringLiteral', value: 'auth-module-policy' },
+          value: { kind: 'UntypedLiteral', value: 'pets:read' },
+        },
+      ]);
+    });
+
+    it('maps @extension on create method', async () => {
+      const { service } = await parseFixture('petstore');
+      const pets = service.interfaces.find((i) => i.name.value === 'Pets');
+      const create = pets?.methods.find((m) => m.name.value === 'create');
+      expect(create?.meta).toEqual([
+        {
+          kind: 'MetaValue',
+          key: { kind: 'StringLiteral', value: 'auth-module-policy' },
+          value: { kind: 'UntypedLiteral', value: 'pets:write' },
+        },
+      ]);
+    });
+
+    it('omits meta when no @extension decorators exist', async () => {
+      const { service } = await parseFixture('petstore');
+      const pets = service.interfaces.find((i) => i.name.value === 'Pets');
+      const update = pets?.methods.find((m) => m.name.value === 'update');
+      expect(update?.meta).toBeUndefined();
+    });
+  });
+
   it('includes auth security on methods', async () => {
     const { service } = await parseFixture('petstore');
     // Petstore has @useAuth(BearerAuth) at namespace level

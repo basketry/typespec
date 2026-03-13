@@ -20,6 +20,7 @@ import {
   type HttpAuth,
   type Authentication,
 } from '@typespec/http';
+import { getExtensions } from '@typespec/openapi';
 import type {
   Service,
   Violation,
@@ -33,6 +34,7 @@ import type {
   EnumMember,
   Union,
   MemberValue,
+  MetaValue,
   PrimitiveValue,
   ComplexValue,
   HttpRoute,
@@ -379,6 +381,7 @@ export class TypeSpecParser {
       : defaultSecurity;
 
     const description = this.desc(operation);
+    const meta = this.parseMeta(operation);
     const method: Method = {
       kind: 'Method',
       name: str(operation.name, opNameLoc),
@@ -387,6 +390,7 @@ export class TypeSpecParser {
       security,
       ...(returns ? { returns } : {}),
       ...(loc ? { loc } : {}),
+      ...(meta ? { meta } : {}),
     };
 
     return method;
@@ -434,12 +438,14 @@ export class TypeSpecParser {
         const loc = this.loc(prop);
         const propNameLoc = this.nameLoc(prop);
         const paramDesc = this.desc(prop);
+        const paramMeta = this.parseMeta(prop);
         params.push({
           kind: 'Parameter',
           name: str(prop.name, propNameLoc),
           ...(paramDesc ? { description: paramDesc } : {}),
           value,
           ...(loc ? { loc } : {}),
+          ...(paramMeta ? { meta: paramMeta } : {}),
         });
       } else if (httpProp.kind === 'body' || httpProp.kind === 'bodyRoot') {
         // Body parameter - map it as a single "body" parameter
@@ -447,12 +453,14 @@ export class TypeSpecParser {
         const loc = this.loc(prop);
         const propNameLoc = this.nameLoc(prop);
         const paramDesc = this.desc(prop);
+        const paramMeta = this.parseMeta(prop);
         params.push({
           kind: 'Parameter',
           name: str(prop.name, propNameLoc),
           ...(paramDesc ? { description: paramDesc } : {}),
           value,
           ...(loc ? { loc } : {}),
+          ...(paramMeta ? { meta: paramMeta } : {}),
         });
       }
     }
@@ -781,6 +789,7 @@ export class TypeSpecParser {
     const loc = this.loc(model);
     const modelNameLoc = this.nameLoc(model);
     const description = this.desc(model);
+    const meta = this.parseMeta(model);
     const type: Type = {
       kind: 'Type',
       name: str(model.name, modelNameLoc),
@@ -788,6 +797,7 @@ export class TypeSpecParser {
       properties,
       rules: [],
       ...(loc ? { loc } : {}),
+      ...(meta ? { meta } : {}),
     };
 
     this.collectedTypes.set(model.name, type);
@@ -802,12 +812,14 @@ export class TypeSpecParser {
       const loc = this.loc(prop);
       const propNameLoc = this.nameLoc(prop);
       const propDesc = this.desc(prop);
+      const propMeta = this.parseMeta(prop);
       properties.push({
         kind: 'Property',
         name: str(prop.name, propNameLoc),
         ...(propDesc ? { description: propDesc } : {}),
         value,
         ...(loc ? { loc } : {}),
+        ...(propMeta ? { meta: propMeta } : {}),
       });
     }
   }
@@ -851,12 +863,14 @@ export class TypeSpecParser {
     const loc = this.loc(tsEnum);
     const enumNameLoc = this.nameLoc(tsEnum);
     const enumDesc = this.desc(tsEnum);
+    const enumMeta = this.parseMeta(tsEnum);
     this.collectedEnums.set(tsEnum.name, {
       kind: 'Enum',
       name: str(tsEnum.name, enumNameLoc),
       ...(enumDesc ? { description: enumDesc } : {}),
       members,
       ...(loc ? { loc } : {}),
+      ...(enumMeta ? { meta: enumMeta } : {}),
     });
   }
 
@@ -871,12 +885,14 @@ export class TypeSpecParser {
     const loc = this.loc(union);
     const unionNameLoc = this.nameLoc(union);
     const unionDesc = this.desc(union);
+    const unionMeta = this.parseMeta(union);
     this.collectedUnions.set(union.name, {
       kind: 'SimpleUnion',
       name: str(union.name, unionNameLoc),
       ...(unionDesc ? { description: unionDesc } : {}),
       members,
       ...(loc ? { loc } : {}),
+      ...(unionMeta ? { meta: unionMeta } : {}),
     });
   }
 
@@ -905,5 +921,24 @@ export class TypeSpecParser {
     } catch {
       return undefined;
     }
+  }
+
+  private parseMeta(type: TSType): MetaValue[] | undefined {
+    const extensions = getExtensions(this.program, type);
+    if (extensions.size === 0) return undefined;
+
+    const meta: MetaValue[] = [];
+    for (const [key, value] of extensions) {
+      meta.push({
+        kind: 'MetaValue',
+        key: {
+          kind: 'StringLiteral',
+          value: key.startsWith('x-') ? key.substring(2) : key,
+        },
+        value: { kind: 'UntypedLiteral', value },
+      });
+    }
+
+    return meta.length ? meta : undefined;
   }
 }

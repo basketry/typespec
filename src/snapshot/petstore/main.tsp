@@ -1,7 +1,9 @@
 import "@typespec/http";
 import "@typespec/rest";
+import "@typespec/openapi";
 
 using TypeSpec.Http;
+using TypeSpec.OpenAPI;
 
 @service(#{
   title: "Pet Store Service",
@@ -46,12 +48,14 @@ model Owner {
 @route("/pets")
 interface Pets {
   /** List all pets in the store. */
+  @extension("x-auth-module-policy", "pets:read")
   @get list(
     /** The maximum number of pets to return. */
     @query limit?: int32,
     @header("X-Request-Id") requestId?: string,
   ): Pet[];
   /** Create a new pet. */
+  @extension("x-auth-module-policy", "pets:write")
   @post create(@body pet: Pet): Pet;
   /** Read a pet by ID. */
   @get read(@path petId: int64): Pet;
