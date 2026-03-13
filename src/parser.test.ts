@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { validate } from 'basketry';
 import { readFileSync } from 'fs';
 import * as path from 'path';
@@ -115,6 +116,91 @@ describe('parser', () => {
         param.location.value,
       );
     }
+  });
+
+  describe('doc comment descriptions', () => {
+    it('maps interface doc comments to description', async () => {
+      const { service } = await parseFixture('petstore');
+      const pets = service.interfaces.find((i) => i.name.value === 'Pets');
+      expect(pets?.description).toEqual([
+        { kind: 'StringLiteral', value: 'Operations for managing pets.' },
+      ]);
+    });
+
+    it('maps method doc comments to description', async () => {
+      const { service } = await parseFixture('petstore');
+      const pets = service.interfaces.find((i) => i.name.value === 'Pets');
+      const list = pets?.methods.find((m) => m.name.value === 'list');
+      expect(list?.description).toEqual([
+        { kind: 'StringLiteral', value: 'List all pets in the store.' },
+      ]);
+    });
+
+    it('maps parameter doc comments to description', async () => {
+      const { service } = await parseFixture('petstore');
+      const pets = service.interfaces.find((i) => i.name.value === 'Pets');
+      const list = pets?.methods.find((m) => m.name.value === 'list');
+      const limit = list?.parameters.find((p) => p.name.value === 'limit');
+      expect(limit?.description).toEqual([
+        {
+          kind: 'StringLiteral',
+          value: 'The maximum number of pets to return.',
+        },
+      ]);
+    });
+
+    it('maps multi-paragraph type doc comments to description array', async () => {
+      const { service } = await parseFixture('petstore');
+      const pet = service.types.find((t) => t.name.value === 'Pet');
+      expect(pet?.description).toEqual([
+        { kind: 'StringLiteral', value: 'A pet in the store.' },
+        {
+          kind: 'StringLiteral',
+          value: 'Pets are the core resource of the Pet Store API.',
+        },
+      ]);
+    });
+
+    it('maps property doc comments to description', async () => {
+      const { service } = await parseFixture('petstore');
+      const pet = service.types.find((t) => t.name.value === 'Pet');
+      const id = pet?.properties.find((p) => p.name.value === 'id');
+      expect(id?.description).toEqual([
+        { kind: 'StringLiteral', value: 'The unique identifier for the pet.' },
+      ]);
+    });
+
+    it('maps enum doc comments to description', async () => {
+      const { service } = await parseFixture('petstore');
+      const petStatus = service.enums.find((e) => e.name.value === 'PetStatus');
+      expect(petStatus?.description).toEqual([
+        {
+          kind: 'StringLiteral',
+          value: 'The status of a pet in the store.',
+        },
+      ]);
+    });
+
+    it('maps enum member doc comments to description', async () => {
+      const { service } = await parseFixture('petstore');
+      const petStatus = service.enums.find((e) => e.name.value === 'PetStatus');
+      const available = petStatus?.members.find(
+        (m) => m.content.value === 'available',
+      );
+      expect(available?.description).toEqual([
+        {
+          kind: 'StringLiteral',
+          value: 'The pet is available for purchase.',
+        },
+      ]);
+    });
+
+    it('omits description when no doc comment exists', async () => {
+      const { service } = await parseFixture('petstore');
+      const pets = service.interfaces.find((i) => i.name.value === 'Pets');
+      const update = pets?.methods.find((m) => m.name.value === 'update');
+      expect(update?.description).toBeUndefined();
+    });
   });
 
   it('includes auth security on methods', async () => {

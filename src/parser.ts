@@ -3,6 +3,7 @@ import {
   NodeHost,
   isArrayModelType,
   getService as getServiceDetails,
+  getDoc,
   type Program,
   type Model,
   type Enum as TSEnum,
@@ -343,9 +344,12 @@ export class TypeSpecParser {
         httpRoutes.get(routePattern)!.methods.push(httpMethod);
       }
 
+      const container = ops[0].container;
+      const description = this.desc(container as TSType);
       interfaces.push({
         kind: 'Interface',
         name: str(name),
+        ...(description ? { description } : {}),
         methods,
         protocols: {
           kind: 'InterfaceProtocols',
@@ -372,9 +376,11 @@ export class TypeSpecParser {
       ? this.mapAuthenticationDirect(op.authentication)
       : defaultSecurity;
 
+    const description = this.desc(operation);
     const method: Method = {
       kind: 'Method',
       name: str(operation.name, loc),
+      ...(description ? { description } : {}),
       parameters,
       security,
       ...(returns ? { returns } : {}),
@@ -424,9 +430,11 @@ export class TypeSpecParser {
       ) {
         const value = this.mapType(prop.type, prop.optional);
         const loc = this.loc(prop);
+        const paramDesc = this.desc(prop);
         params.push({
           kind: 'Parameter',
           name: str(prop.name, loc),
+          ...(paramDesc ? { description: paramDesc } : {}),
           value,
           ...(loc ? { loc } : {}),
         });
@@ -434,9 +442,11 @@ export class TypeSpecParser {
         // Body parameter - map it as a single "body" parameter
         const value = this.mapType(prop.type, prop.optional);
         const loc = this.loc(prop);
+        const paramDesc = this.desc(prop);
         params.push({
           kind: 'Parameter',
           name: str(prop.name, loc),
+          ...(paramDesc ? { description: paramDesc } : {}),
           value,
           ...(loc ? { loc } : {}),
         });
@@ -764,9 +774,11 @@ export class TypeSpecParser {
     this.collectModelProperties(model, properties);
 
     const loc = this.loc(model);
+    const description = this.desc(model);
     const type: Type = {
       kind: 'Type',
       name: str(model.name, loc),
+      ...(description ? { description } : {}),
       properties,
       rules: [],
       ...(loc ? { loc } : {}),
@@ -782,9 +794,11 @@ export class TypeSpecParser {
 
       const value = this.mapType(prop.type, prop.optional);
       const loc = this.loc(prop);
+      const propDesc = this.desc(prop);
       properties.push({
         kind: 'Property',
         name: str(prop.name, loc),
+        ...(propDesc ? { description: propDesc } : {}),
         value,
         ...(loc ? { loc } : {}),
       });
@@ -808,9 +822,11 @@ export class TypeSpecParser {
       }
 
       const memberLoc = this.loc(member);
+      const memberDesc = this.desc(member);
       members.push({
         kind: 'EnumMember',
         content: str(content, memberLoc),
+        ...(memberDesc ? { description: memberDesc } : {}),
         ...(memberLoc ? { loc: memberLoc } : {}),
       });
     }
@@ -825,9 +841,11 @@ export class TypeSpecParser {
     }
 
     const loc = this.loc(tsEnum);
+    const enumDesc = this.desc(tsEnum);
     this.collectedEnums.set(tsEnum.name, {
       kind: 'Enum',
       name: str(tsEnum.name, loc),
+      ...(enumDesc ? { description: enumDesc } : {}),
       members,
       ...(loc ? { loc } : {}),
     });
@@ -842,12 +860,23 @@ export class TypeSpecParser {
     );
 
     const loc = this.loc(union);
+    const unionDesc = this.desc(union);
     this.collectedUnions.set(union.name, {
       kind: 'SimpleUnion',
       name: str(union.name, loc),
+      ...(unionDesc ? { description: unionDesc } : {}),
       members,
       ...(loc ? { loc } : {}),
     });
+  }
+
+  private desc(type: TSType): StringLiteral[] | undefined {
+    const doc = getDoc(this.program, type);
+    if (!doc) return undefined;
+    return doc
+      .split('\n\n')
+      .map((paragraph) => str(paragraph.trim()))
+      .filter((s) => s.value.length > 0);
   }
 
   private loc(node: any): string | undefined {
