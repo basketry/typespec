@@ -501,7 +501,8 @@ export class TypeSpecParser {
     }
 
     const value = this.mapType(bodyType, false);
-    return { kind: 'ReturnValue', value };
+    const loc = this.loc(bodyType);
+    return { kind: 'ReturnValue', value, ...(loc ? { loc } : {}) };
   }
 
   private buildHttpMethod(op: HttpOperation): HttpMethod {
