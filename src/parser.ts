@@ -44,7 +44,7 @@ import type {
   IntegerLiteral,
   TrueLiteral,
 } from 'basketry';
-import { buildSourceIndex, encodeLoc } from './location.js';
+import { buildSourceIndex, encodeLoc, encodeNameLoc } from './location.js';
 import { mapScalar, isKnownScalar } from './type-mapping.js';
 import * as violations from './violations.js';
 import * as path from 'path';
@@ -346,9 +346,10 @@ export class TypeSpecParser {
 
       const container = ops[0].container;
       const description = this.desc(container as TSType);
+      const ifaceNameLoc = this.nameLoc(container);
       interfaces.push({
         kind: 'Interface',
-        name: str(name),
+        name: str(name, ifaceNameLoc),
         ...(description ? { description } : {}),
         methods,
         protocols: {
@@ -367,6 +368,7 @@ export class TypeSpecParser {
   ): Method {
     const operation = op.operation;
     const loc = this.loc(operation);
+    const opNameLoc = this.nameLoc(operation);
 
     const parameters = this.buildParameters(op);
     const returns = this.buildReturnValue(op);
@@ -379,7 +381,7 @@ export class TypeSpecParser {
     const description = this.desc(operation);
     const method: Method = {
       kind: 'Method',
-      name: str(operation.name, loc),
+      name: str(operation.name, opNameLoc),
       ...(description ? { description } : {}),
       parameters,
       security,
@@ -430,10 +432,11 @@ export class TypeSpecParser {
       ) {
         const value = this.mapType(prop.type, prop.optional);
         const loc = this.loc(prop);
+        const propNameLoc = this.nameLoc(prop);
         const paramDesc = this.desc(prop);
         params.push({
           kind: 'Parameter',
-          name: str(prop.name, loc),
+          name: str(prop.name, propNameLoc),
           ...(paramDesc ? { description: paramDesc } : {}),
           value,
           ...(loc ? { loc } : {}),
@@ -442,10 +445,11 @@ export class TypeSpecParser {
         // Body parameter - map it as a single "body" parameter
         const value = this.mapType(prop.type, prop.optional);
         const loc = this.loc(prop);
+        const propNameLoc = this.nameLoc(prop);
         const paramDesc = this.desc(prop);
         params.push({
           kind: 'Parameter',
-          name: str(prop.name, loc),
+          name: str(prop.name, propNameLoc),
           ...(paramDesc ? { description: paramDesc } : {}),
           value,
           ...(loc ? { loc } : {}),
@@ -774,10 +778,11 @@ export class TypeSpecParser {
     this.collectModelProperties(model, properties);
 
     const loc = this.loc(model);
+    const modelNameLoc = this.nameLoc(model);
     const description = this.desc(model);
     const type: Type = {
       kind: 'Type',
-      name: str(model.name, loc),
+      name: str(model.name, modelNameLoc),
       ...(description ? { description } : {}),
       properties,
       rules: [],
@@ -794,10 +799,11 @@ export class TypeSpecParser {
 
       const value = this.mapType(prop.type, prop.optional);
       const loc = this.loc(prop);
+      const propNameLoc = this.nameLoc(prop);
       const propDesc = this.desc(prop);
       properties.push({
         kind: 'Property',
-        name: str(prop.name, loc),
+        name: str(prop.name, propNameLoc),
         ...(propDesc ? { description: propDesc } : {}),
         value,
         ...(loc ? { loc } : {}),
@@ -822,10 +828,11 @@ export class TypeSpecParser {
       }
 
       const memberLoc = this.loc(member);
+      const memberNameLoc = this.nameLoc(member);
       const memberDesc = this.desc(member);
       members.push({
         kind: 'EnumMember',
-        content: str(content, memberLoc),
+        content: str(content, memberNameLoc),
         ...(memberDesc ? { description: memberDesc } : {}),
         ...(memberLoc ? { loc: memberLoc } : {}),
       });
@@ -841,10 +848,11 @@ export class TypeSpecParser {
     }
 
     const loc = this.loc(tsEnum);
+    const enumNameLoc = this.nameLoc(tsEnum);
     const enumDesc = this.desc(tsEnum);
     this.collectedEnums.set(tsEnum.name, {
       kind: 'Enum',
-      name: str(tsEnum.name, loc),
+      name: str(tsEnum.name, enumNameLoc),
       ...(enumDesc ? { description: enumDesc } : {}),
       members,
       ...(loc ? { loc } : {}),
@@ -860,10 +868,11 @@ export class TypeSpecParser {
     );
 
     const loc = this.loc(union);
+    const unionNameLoc = this.nameLoc(union);
     const unionDesc = this.desc(union);
     this.collectedUnions.set(union.name, {
       kind: 'SimpleUnion',
-      name: str(union.name, loc),
+      name: str(union.name, unionNameLoc),
       ...(unionDesc ? { description: unionDesc } : {}),
       members,
       ...(loc ? { loc } : {}),
@@ -883,6 +892,15 @@ export class TypeSpecParser {
     try {
       if (!node?.node) return undefined;
       return encodeLoc(this.sourceIndexMap, node);
+    } catch {
+      return undefined;
+    }
+  }
+
+  private nameLoc(node: any): string | undefined {
+    try {
+      if (!node?.node) return undefined;
+      return encodeNameLoc(this.sourceIndexMap, node);
     } catch {
       return undefined;
     }

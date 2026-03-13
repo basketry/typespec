@@ -119,3 +119,31 @@ export function encodeLoc(
 
   return encodeRange(sourceIndex, range);
 }
+
+/**
+ * Encodes the location of a TypeSpec AST node's name identifier (.node.id).
+ * Falls back to the full node span if no id is present.
+ */
+export function encodeNameLoc(
+  sourceIndexMap: Map<string, number>,
+  node: LocNode,
+): string | undefined {
+  if (!node.node) return undefined;
+
+  const astNode = node.node as AstNode & { id?: { pos: number; end: number } };
+  const pos = astNode.id?.pos ?? astNode.pos;
+  const end = astNode.id?.end ?? astNode.end;
+
+  const file = findSourceFile(node.node);
+  if (!file) return undefined;
+
+  const sourceIndex = sourceIndexMap.get(file.path);
+  if (sourceIndex === undefined) return undefined;
+
+  const range: Range = {
+    start: offsetToPosition(file.text, pos),
+    end: offsetToPosition(file.text, end),
+  };
+
+  return encodeRange(sourceIndex, range);
+}
