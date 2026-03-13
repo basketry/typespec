@@ -1,6 +1,6 @@
 import { Parser } from 'basketry';
-import { TypeSpecParser } from './parser';
-import * as violations from './violations';
+import { TypeSpecParser } from './parser.js';
+import * as violations from './violations.js';
 
 const parse: Parser = async (_sourceContent, absoluteSourcePath) => {
   const parser = new TypeSpecParser(absoluteSourcePath);

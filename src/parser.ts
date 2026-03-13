@@ -43,9 +43,9 @@ import type {
   IntegerLiteral,
   TrueLiteral,
 } from 'basketry';
-import { buildSourceIndex, encodeLoc } from './location';
-import { mapScalar, isKnownScalar } from './type-mapping';
-import * as violations from './violations';
+import { buildSourceIndex, encodeLoc } from './location.js';
+import { mapScalar, isKnownScalar } from './type-mapping.js';
+import * as violations from './violations.js';
 import * as path from 'path';
 
 const TRUE_LITERAL: TrueLiteral = { kind: 'TrueLiteral', value: true };

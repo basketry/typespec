@@ -1,15 +1,16 @@
 {
   "compilerOptions": {
-    "lib": ["es6"],
-    "module": "commonjs",
+    "lib": ["es2022"],
+    "module": "node16",
+    "moduleResolution": "node16",
     "noImplicitReturns": true,
     "outDir": "lib",
     "sourceMap": true,
-    "target": "es6",
+    "target": "es2022",
     "declaration": true,
     "strictNullChecks": true,
     "skipLibCheck": true
   },
   "include": ["src"],
-  "exclude": ["**/*.test?.*"]
+  "exclude": ["**/*.test.ts", "**/*.test.*.ts"]
 }

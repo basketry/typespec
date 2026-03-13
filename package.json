@@ -2,6 +2,7 @@
   "name": "@basketry/typespec",
   "version": "0.1.0",
   "description": "Basketry parser for TypeSpec service definitions",
+  "type": "module",
   "main": "./lib/index.js",
   "bin": {
     "basketry-typespec": "./lib/rpc.js"
