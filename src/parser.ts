@@ -369,8 +369,8 @@ export class TypeSpecParser {
     defaultSecurity: SecurityOption[],
   ): Method {
     const operation = op.operation;
-    const loc = this.loc(operation);
     const opNameLoc = this.nameLoc(operation);
+    const loc = opNameLoc ?? this.loc(operation);
 
     const parameters = this.buildParameters(op);
     const returns = this.buildReturnValue(op);
@@ -786,8 +786,8 @@ export class TypeSpecParser {
     // Collect own properties
     this.collectModelProperties(model, properties);
 
-    const loc = this.loc(model);
     const modelNameLoc = this.nameLoc(model);
+    const loc = modelNameLoc ?? this.loc(model);
     const description = this.desc(model);
     const meta = this.parseMeta(model);
     const type: Type = {
@@ -860,8 +860,8 @@ export class TypeSpecParser {
       );
     }
 
-    const loc = this.loc(tsEnum);
     const enumNameLoc = this.nameLoc(tsEnum);
+    const loc = enumNameLoc ?? this.loc(tsEnum);
     const enumDesc = this.desc(tsEnum);
     const enumMeta = this.parseMeta(tsEnum);
     this.collectedEnums.set(tsEnum.name, {
@@ -882,8 +882,8 @@ export class TypeSpecParser {
       this.mapType(v.type, false),
     );
 
-    const loc = this.loc(union);
     const unionNameLoc = this.nameLoc(union);
+    const loc = unionNameLoc ?? this.loc(union);
     const unionDesc = this.desc(union);
     const unionMeta = this.parseMeta(union);
     this.collectedUnions.set(union.name, {
