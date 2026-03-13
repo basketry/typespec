@@ -1,7 +1,26 @@
 {
-  "preset": "ts-jest",
+  "preset": "ts-jest/presets/default-esm",
   "testEnvironment": "node",
   "collectCoverage": true,
   "passWithNoTests": true,
-  "testMatch": ["**/__tests__/**/*.ts?(x)", "**/?(*.)+(spec|test|tests).ts?(x)"]
+  "testMatch": ["**/__tests__/**/*.ts?(x)", "**/?(*.)+(spec|test|tests).ts?(x)"],
+  "extensionsToTreatAsEsm": [".ts"],
+  "moduleNameMapper": {
+    "^(\\.{1,2}/.*)\\.js$": "$1"
+  },
+  "transform": {
+    "^.+\\.tsx?$": ["ts-jest", {
+      "useESM": true,
+      "tsconfig": {
+        "module": "es2020",
+        "target": "es2020",
+        "moduleResolution": "node",
+        "esModuleInterop": true,
+        "allowJs": true,
+        "sourceMap": true,
+        "strictNullChecks": true,
+        "skipLibCheck": true
+      }
+    }]
+  }
 }
