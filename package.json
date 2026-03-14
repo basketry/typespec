@@ -1,30 +1,36 @@
 {
   "name": "@basketry/typespec",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0",
   "description": "Basketry parser for TypeSpec service definitions",
   "type": "module",
-  "main": "./lib/src/index.js",
+  "main": "./lib/index.cjs",
+  "exports": {
+    ".": {
+      "import": "./lib/index.js",
+      "require": "./lib/index.cjs"
+    }
+  },
   "bin": {
-    "basketry-typespec": "./lib/src/rpc.js"
+    "basketry-typespec": "./lib/rpc.js"
   },
   "scripts": {
-    "prebuild": "run-s -s clean lint",
-    "build": "run-s -s build:*",
-    "build:typescript": "tsc",
-    "postbuild": "chmod +x ./lib/src/rpc.js",
+    "test": "vitest run",
     "clean": "run-s -s clean:*",
-    "clean:coverage": "rimraf coverage",
-    "clean:output": "rimraf lib",
-    "fix": "run-s -s fix:*",
-    "fix:eslint": "eslint --fix",
-    "fix:prettier": "prettier -w .",
+    "create-snapshot": "ts-node ./src/snapshot/create-snapshot.ts",
     "lint": "run-s -s lint:*",
-    "lint:eslint": "eslint .",
-    "lint:prettier": "prettier -c .",
-    "prepack": "run-s -s build",
+    "fix": "run-s -s fix:*",
+    "clean:output": "rimraf lib",
+    "clean:coverage": "rimraf coverage",
     "start": "node ./lib/index.js",
+    "prebuild": "run-s -s clean lint",
+    "build": "tsc",
+    "postbuild": "chmod +x ./lib/rpc.js && cp ./src/index.cjs ./lib/index.cjs",
+    "lint:eslint": "eslint .",
+    "fix:eslint": "eslint --fix",
+    "lint:prettier": "prettier -c .",
+    "fix:prettier": "prettier -w .",
     "pretest": "run-s -s clean",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules node_modules/.bin/jest"
+    "prepack": "run-s -s build"
   },
   "keywords": [],
   "author": "Steve Konves",
@@ -36,33 +42,27 @@
   "bugs": {
     "url": "https://github.com/basketry/typespec/issues"
   },
-  "homepage": "https://github.com/basketry/typespec#readme",
+  "homepage": "https://basketry.io/docs/components/@basketry/typespec",
+  "funding": "https://github.com/sponsors/basketry",
   "devDependencies": {
-    "@types/jest": "^30.0.0",
-    "@types/node": "^24.3.0",
-    "@types/pluralize": "^0.0.33",
-    "@typescript-eslint/eslint-plugin": "^8.41.0",
-    "@typescript-eslint/parser": "^8.41.0",
-    "@typespec/http-server-js": "^0.58.0-alpha.18",
-    "@typespec/openapi": "^1.3.0",
-    "@typespec/openapi3": "^1.3.0",
-    "eslint": "^9.34.0",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-import": "^2.32.0",
-    "jest": "^30.1.2",
+    "@types/node": "^22.7.5",
+    "@typescript-eslint/eslint-plugin": "^8.32.1",
+    "@typescript-eslint/parser": "^8.32.1",
+    "eslint": "^9.27.0",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-import": "^2.31.0",
     "npm-run-all": "^4.1.5",
-    "prettier": "^3.6.2",
-    "rimraf": "^6.0.1",
-    "ts-jest": "^29.4.1",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.2",
-    "uuid": "^11.1.0"
+    "prettier": "^3.5.3",
+    "rimraf": "^3.0.2",
+    "ts-node": "^10.4.0",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.0"
   },
   "dependencies": {
-    "@typespec/compiler": "^1.3.0",
-    "@typespec/http": "^1.3.0",
-    "@typespec/rest": "^0.73.0",
-    "basketry": "^0.2.1",
-    "pluralize": "^8.0.0"
+    "@typespec/compiler": "^1.0.0",
+    "@typespec/http": "^1.0.0",
+    "@typespec/openapi": "^1.10.0",
+    "@typespec/rest": "^0.80.0",
+    "basketry": "^0.2.1"
   }
 }

@@ -1,1086 +1,944 @@
+import {
+  compile,
+  NodeHost,
+  isArrayModelType,
+  getService as getServiceDetails,
+  getDoc,
+  type Program,
+  type Model,
+  type Enum as TSEnum,
+  type Union as TSUnion,
+  type Scalar,
+  type Type as TSType,
+  type Namespace,
+  type Interface as TSInterface,
+} from '@typespec/compiler';
+import {
+  getAllHttpServices,
+  resolveAuthentication,
+  type HttpOperation,
+  type HttpAuth,
+  type Authentication,
+} from '@typespec/http';
+import { getExtensions } from '@typespec/openapi';
+import type {
+  Service,
+  Violation,
+  Interface,
+  Method,
+  Parameter,
+  ReturnValue,
+  Type,
+  Property,
+  Enum,
+  EnumMember,
+  Union,
+  MemberValue,
+  MetaValue,
+  PrimitiveValue,
+  ComplexValue,
+  HttpRoute,
+  HttpMethod,
+  HttpParameter,
+  SecurityOption,
+  SecurityScheme,
+  StringLiteral,
+  IntegerLiteral,
+  TrueLiteral,
+} from 'basketry';
+import { buildSourceIndex, encodeLoc, encodeNameLoc } from './location.js';
+import { mapScalar, isKnownScalar } from './type-mapping.js';
+import * as violations from './violations.js';
 import * as path from 'path';
-import casePkg from 'case';
-import pluralizePkg from 'pluralize';
 
-import * as TSP from '@typespec/compiler';
-import { DocNode } from '@typespec/compiler/ast';
-import * as HTTP from '@typespec/http';
+const TRUE_LITERAL: TrueLiteral = { kind: 'TrueLiteral', value: true };
 
-import * as IR from '@basketry/ir';
-import { SourcePathState } from './source-path-state.js';
+function str(value: string, loc?: string): StringLiteral {
+  return loc
+    ? { kind: 'StringLiteral', value, loc }
+    : { kind: 'StringLiteral', value };
+}
 
-import pkg from '../package.json' with { type: 'json' };
-import { decodeRange } from 'basketry';
+function int(value: number, loc?: string): IntegerLiteral {
+  return loc
+    ? { kind: 'IntegerLiteral', value, loc }
+    : { kind: 'IntegerLiteral', value };
+}
 
-const { camel, snake } = casePkg;
-const { singular } = pluralizePkg;
+export class TypeSpecParser {
+  private absoluteSourcePath: string;
+  private projectDirectory: string;
+  violations: Violation[] = [];
 
-export class TypespecParser {
-  public static async create(
-    context: IR.ParserContext,
-    basketry: IR.BasketryContext,
-  ): Promise<TypespecParser | undefined> {
-    const absoluteSourcePath = path.resolve(
-      basketry.projectDirectory,
-      context.sourcePath,
-    );
+  private program!: Program;
+  private sourceIndexMap!: Map<string, number>;
+  private sourcePaths!: string[];
 
-    const program: TSP.Program = await TSP.compile(
-      TSP.NodeHost,
-      absoluteSourcePath,
-      {
-        noEmit: true,
-      },
-    );
+  // Collected IR entities (demand-driven)
+  private collectedTypes = new Map<string, Type>();
+  private collectedEnums = new Map<string, Enum>();
+  private collectedUnions = new Map<string, Union>();
+  // Track which TypeSpec types we've already visited to avoid infinite recursion
+  private visitedTypes = new Set<TSType>();
 
-    const sourcePathState = new SourcePathState(absoluteSourcePath);
-
-    const [services, diagnostics] = HTTP.getAllHttpServices(program);
-    if (services.length !== 1 || diagnostics.length) {
-      for (const diag of diagnostics) {
-        console.error(diag);
-      }
-    }
-
-    const service = services[0];
-
-    return new TypespecParser(
-      context,
-      basketry,
-      program,
-      service,
-      sourcePathState,
-    );
-  }
-  private constructor(
-    private readonly context: IR.ParserContext,
-    private readonly basketry: IR.BasketryContext,
-    private readonly program: TSP.Program,
-    private readonly service: HTTP.HttpService,
-    private readonly sourcePathState: SourcePathState,
-  ) {}
-
-  private readonly types: Map<string, IR.Type> = new Map();
-  private readonly enums: Map<string, IR.Enum> = new Map();
-  private readonly unions: Map<string, IR.Union> = new Map();
-  private readonly violations: IR.Violation[] = [];
-
-  public async parse(): Promise<IR.ParseResult> {
-    try {
-      this.parseTypes();
-      this.parseEnums();
-
-      return {
-        service: {
-          kind: 'Service',
-          basketry: '0.2',
-          sourcePaths: Array.from(this.sourcePathState.sourcePaths),
-          title: this.parseTitle(),
-          majorVersion: this.parseMajorVersion(),
-          interfaces: this.parseInterfaces(),
-          types: Array.from(this.types.values()).sort(byName),
-          enums: Array.from(this.enums.values()).sort(byName),
-          unions: Array.from(this.unions.values()).sort(byName),
-        },
-        violations: this.violations,
-      };
-    } catch (err) {
-      console.error(err);
-      return {
-        violations: this.violations,
-      };
-    }
+  constructor(absoluteSourcePath: string) {
+    this.absoluteSourcePath = absoluteSourcePath;
+    this.projectDirectory = path.dirname(absoluteSourcePath);
   }
 
-  private parseDescription(
-    docs: readonly DocNode[] | undefined,
-  ): IR.StringLiteral[] | undefined {
-    if (!docs?.length) return undefined;
-
-    return docs
-      .flatMap((doc) => doc.content)
-      .map((content) => {
-        const loc = this.sourcePathState.getEncodedRange(
-          TSP.getSourceLocation(content),
-        );
-
-        return {
-          kind: 'StringLiteral',
-          value: content.text,
-          loc,
-        };
-      });
-  }
-
-  private parseTitle(): IR.StringLiteral {
-    const serviceDecorator = this.service.namespace.decorators.find(
-      (d) => d.definition?.name === '@service',
-    );
-
-    const arg = serviceDecorator?.args[0]?.value;
-
-    if (arg?.entityKind === 'Value' && arg.valueKind === 'ObjectValue') {
-      const titleProp = arg.properties.get('title');
-
-      if (
-        titleProp?.value.entityKind === 'Value' &&
-        titleProp.value.valueKind === 'StringValue'
-      ) {
-        const loc = this.sourcePathState.getEncodedRange(
-          TSP.getSourceLocation(titleProp.node?.value),
-        );
-
-        return {
-          kind: 'StringLiteral',
-          value: titleProp.value.value,
-          loc,
-        };
-      }
-    }
-
-    const title: IR.StringLiteral = {
-      kind: 'StringLiteral',
-      value: this.service.namespace.name,
-      // TODO: encode a more precise range
-      loc: this.sourcePathState.getEncodedRange(
-        TSP.getSourceLocation(this.service.namespace.node),
-      ),
-    };
-
-    return title;
-  }
-
-  private parseMajorVersion(): IR.IntegerLiteral {
-    // TODO: handle service major version, fall back to 1
-
-    return { kind: 'IntegerLiteral', value: 1 };
-  }
-
-  private parseTypes(): IR.Type[] {
-    return Array.from(this.service.namespace.models.values()).map((model) =>
-      this.parseType(model),
-    );
-  }
-
-  private parseEnums(): IR.Enum[] {
-    return Array.from(this.service.namespace.enums.values()).map((enm) =>
-      this.parseEnum(enm),
-    );
-  }
-
-  private parseInterfaces(): IR.Interface[] {
-    return Array.from(this.service.namespace.interfaces.values()).map((int) =>
-      this.parseInterface(int),
-    );
-  }
-
-  private parseInterface(int: TSP.Interface): IR.Interface {
-    const name = this.parseName(int);
-
-    const singularName = {
-      kind: name.kind,
-      value: singular(name.value),
-      loc: name.loc,
-    };
-
-    return {
-      kind: 'Interface',
-      name: singularName,
-      description: this.parseDescription(int.node?.docs),
-      deprecated: undefined, // TODO: parse interface deprecated
-      methods: this.parseMethods(int),
-      protocols: this.parseProtocols(int),
-      meta: undefined, // TODO: parse interface meta
-    };
-  }
-
-  private parseProtocols(int: TSP.Interface): IR.Protocols | undefined {
-    const http = this.parseHttpProtocol(int);
-    if (!http?.length) return undefined;
-
-    return {
-      kind: 'InterfaceProtocols',
-      http,
-    };
-  }
-
-  private parseRoutePattern(httpOp: HTTP.HttpOperation): IR.StringLiteral {
-    return {
-      kind: 'StringLiteral',
-      value: httpOp.uriTemplate,
-    };
-  }
-
-  private parseHttpProtocol(int: TSP.Interface): IR.HttpRoute[] | undefined {
-    const [httpOps] = HTTP.listHttpOperationsIn(this.program, int.namespace!, {
-      listOptions: { recursive: true },
+  async parse(): Promise<Service> {
+    // Step 1: Compile the TypeSpec file
+    this.program = await compile(NodeHost, this.absoluteSourcePath, {
+      noEmit: true,
     });
 
-    const routeMap = new Map<string, IR.HttpRoute>();
+    // Convert compiler diagnostics to violations
+    for (const diag of this.program.diagnostics) {
+      this.violations.push(
+        violations.convertDiagnostic(
+          diag as any,
+          this.absoluteSourcePath,
+          (_target: unknown) => undefined,
+        ),
+      );
+    }
 
-    for (const httpOp of httpOps) {
-      const pattern = this.parseRoutePattern(httpOp);
+    // If there are compiler errors, return empty service rather than risk garbage IR
+    if (this.program.diagnostics.some((d) => d.severity === 'error')) {
+      const earlySourceIndex = buildSourceIndex(
+        this.program.sourceFiles,
+        this.projectDirectory,
+      );
+      this.sourcePaths = earlySourceIndex.sourcePaths;
+      return this.emptyService();
+    }
 
-      if (!routeMap.has(pattern.value)) {
-        routeMap.set(pattern.value, {
-          kind: 'HttpRoute',
-          pattern,
-          methods: [],
-        });
+    // Step 2: Build source index
+    const sourceIndex = buildSourceIndex(
+      this.program.sourceFiles,
+      this.projectDirectory,
+    );
+    this.sourceIndexMap = sourceIndex.sourceIndexMap;
+    this.sourcePaths = sourceIndex.sourcePaths;
+
+    // Step 3: Get HTTP services
+    const [services, httpDiags] = getAllHttpServices(this.program);
+    for (const diag of httpDiags) {
+      this.violations.push(
+        violations.convertDiagnostic(
+          diag as any,
+          this.absoluteSourcePath,
+          (_target: unknown) => undefined,
+        ),
+      );
+    }
+
+    if (services.length === 0) {
+      return this.emptyService();
+    }
+
+    const httpService = services[0];
+    const namespace = httpService.namespace;
+
+    // Step 4: Extract service metadata
+    const serviceDetails = getServiceDetails(this.program, namespace);
+    const title = serviceDetails?.title || namespace.name || 'Untitled Service';
+
+    // Extract version
+    let majorVersion = 1;
+    const version = (serviceDetails as any)?.version;
+    if (version) {
+      const parsed = parseInt(version, 10);
+      if (!isNaN(parsed)) {
+        majorVersion = parsed;
+      }
+    } else {
+      this.violations.push(
+        violations.missingVersion(
+          this.sourcePaths[0] || this.absoluteSourcePath,
+        ),
+      );
+    }
+
+    // Step 5: Extract auth info
+    const auth = resolveAuthentication(httpService);
+    const defaultSecurity = this.mapAuthentication(auth.defaultAuth);
+
+    // Step 6: Build interfaces from HTTP operations
+    const interfaces = this.buildInterfaces(
+      httpService.operations,
+      defaultSecurity,
+    );
+
+    return {
+      kind: 'Service',
+      basketry: '0.2',
+      title: str(title),
+      majorVersion: int(majorVersion),
+      sourcePaths: this.sourcePaths,
+      interfaces,
+      types: Array.from(this.collectedTypes.values()),
+      enums: Array.from(this.collectedEnums.values()),
+      unions: Array.from(this.collectedUnions.values()),
+    };
+  }
+
+  private emptyService(): Service {
+    return {
+      kind: 'Service',
+      basketry: '0.2',
+      title: str('Untitled Service'),
+      majorVersion: int(1),
+      sourcePaths: this.sourcePaths || [],
+      interfaces: [],
+      types: [],
+      enums: [],
+      unions: [],
+    };
+  }
+
+  private mapAuthentication(authRef: {
+    options: ReadonlyArray<{
+      all: ReadonlyArray<{ kind: string; auth: HttpAuth }>;
+    }>;
+  }): SecurityOption[] {
+    if (!authRef || !authRef.options) return [];
+
+    return authRef.options
+      .map((option) => {
+        const schemes: SecurityScheme[] = option.all
+          .filter((ref) => ref.kind !== 'noAuth')
+          .map((ref) => this.mapHttpAuth(ref.auth));
+        return { kind: 'SecurityOption' as const, schemes };
+      })
+      .filter((opt) => opt.schemes.length > 0);
+  }
+
+  private mapHttpAuth(auth: HttpAuth): SecurityScheme {
+    if (auth.type === 'http') {
+      if ((auth as any).scheme === 'Bearer') {
+        return {
+          kind: 'BasicScheme',
+          type: { value: 'basic' as const },
+          name: str(auth.id || 'BearerAuth'),
+        };
+      }
+      return {
+        kind: 'BasicScheme',
+        type: { value: 'basic' as const },
+        name: str(auth.id || 'BasicAuth'),
+      };
+    }
+    if (auth.type === 'apiKey') {
+      const apiKeyAuth = auth as any;
+      return {
+        kind: 'ApiKeyScheme',
+        type: { value: 'apiKey' as const },
+        name: str(apiKeyAuth.id || 'ApiKeyAuth'),
+        parameter: str(apiKeyAuth.name || ''),
+        in: { value: apiKeyAuth.in || 'header' },
+      };
+    }
+    if (auth.type === 'oauth2') {
+      const oauth2Auth = auth as any;
+      return {
+        kind: 'OAuth2Scheme',
+        type: { value: 'oauth2' as const },
+        name: str(oauth2Auth.id || 'OAuth2'),
+        flows: (oauth2Auth.flows || []).map((flow: any) =>
+          this.mapOAuth2Flow(flow),
+        ),
+      };
+    }
+    // Fallback
+    return {
+      kind: 'BasicScheme',
+      type: { value: 'basic' as const },
+      name: str(auth.id || 'unknown'),
+    };
+  }
+
+  private mapOAuth2Flow(flow: any): any {
+    const scopes = (flow.scopes || []).map((s: any) => ({
+      kind: 'OAuth2Scope',
+      name: str(s.value || s.name || ''),
+      description: [],
+    }));
+
+    switch (flow.type) {
+      case 'authorizationCode':
+        return {
+          kind: 'OAuth2AuthorizationCodeFlow',
+          type: { value: 'authorizationCode' as const },
+          authorizationUrl: str(flow.authorizationUrl || ''),
+          tokenUrl: str(flow.tokenUrl || ''),
+          scopes,
+        };
+      case 'implicit':
+        return {
+          kind: 'OAuth2ImplicitFlow',
+          type: { value: 'implicit' as const },
+          authorizationUrl: str(flow.authorizationUrl || ''),
+          scopes,
+        };
+      case 'clientCredentials':
+        return {
+          kind: 'OAuth2ClientCredentialsFlow',
+          type: { value: 'clientCredentials' as const },
+          tokenUrl: str(flow.tokenUrl || ''),
+          scopes,
+        };
+      case 'password':
+        return {
+          kind: 'OAuth2PasswordFlow',
+          type: { value: 'password' as const },
+          tokenUrl: str(flow.tokenUrl || ''),
+          scopes,
+        };
+      default:
+        return {
+          kind: 'OAuth2ImplicitFlow',
+          type: { value: 'implicit' as const },
+          authorizationUrl: str(''),
+          scopes,
+        };
+    }
+  }
+
+  private buildInterfaces(
+    httpOps: HttpOperation[],
+    defaultSecurity: SecurityOption[],
+  ): Interface[] {
+    // Group operations by their container (interface or namespace)
+    const groups = new Map<string, HttpOperation[]>();
+    for (const op of httpOps) {
+      const container = op.container;
+      const name =
+        container.kind === 'Interface'
+          ? (container as TSInterface).name
+          : (container as Namespace).name;
+      if (!groups.has(name)) {
+        groups.set(name, []);
+      }
+      groups.get(name)!.push(op);
+    }
+
+    const interfaces: Interface[] = [];
+    for (const [name, ops] of groups) {
+      const methods: Method[] = [];
+      const httpRoutes = new Map<string, HttpRoute>();
+
+      for (const op of ops) {
+        const method = this.buildMethod(op, defaultSecurity);
+        methods.push(method);
+
+        // Build HTTP route info
+        const routePattern = op.path;
+        if (!httpRoutes.has(routePattern)) {
+          httpRoutes.set(routePattern, {
+            kind: 'HttpRoute',
+            pattern: str(routePattern),
+            methods: [],
+          });
+        }
+
+        const httpMethod = this.buildHttpMethod(op);
+        httpRoutes.get(routePattern)!.methods.push(httpMethod);
       }
 
-      const route = routeMap.get(pattern.value);
-      if (route) {
-        route.methods.push(this.parseHttpMethod(httpOp));
+      const container = ops[0].container;
+      const description = this.desc(container as TSType);
+      const ifaceNameLoc = this.nameLoc(container);
+      interfaces.push({
+        kind: 'Interface',
+        name: str(name, ifaceNameLoc),
+        ...(description ? { description } : {}),
+        methods,
+        protocols: {
+          kind: 'InterfaceProtocols',
+          http: Array.from(httpRoutes.values()),
+        },
+      });
+    }
+
+    return interfaces;
+  }
+
+  private buildMethod(
+    op: HttpOperation,
+    defaultSecurity: SecurityOption[],
+  ): Method {
+    const operation = op.operation;
+    const opNameLoc = this.nameLoc(operation);
+    const loc = opNameLoc ?? this.loc(operation);
+
+    const parameters = this.buildParameters(op);
+    const returns = this.buildReturnValue(op);
+
+    // Use operation-level auth if available, otherwise default
+    const security = op.authentication
+      ? this.mapAuthenticationDirect(op.authentication)
+      : defaultSecurity;
+
+    const description = this.desc(operation);
+    const meta = this.parseMeta(operation);
+    const method: Method = {
+      kind: 'Method',
+      name: str(operation.name, opNameLoc),
+      ...(description ? { description } : {}),
+      parameters,
+      security,
+      ...(returns ? { returns } : {}),
+      ...(loc ? { loc } : {}),
+      ...(meta ? { meta } : {}),
+    };
+
+    return method;
+  }
+
+  private mapAuthenticationDirect(auth: Authentication): SecurityOption[] {
+    return auth.options
+      .map((option) => {
+        const schemes: SecurityScheme[] = option.schemes
+          .filter((s) => s.type !== 'noAuth')
+          .map((s) => this.mapHttpAuth(s));
+        return { kind: 'SecurityOption' as const, schemes };
+      })
+      .filter((opt) => opt.schemes.length > 0);
+  }
+
+  private buildParameters(op: HttpOperation): Parameter[] {
+    const params: Parameter[] = [];
+    const httpProperties = op.parameters.properties;
+
+    for (const httpProp of httpProperties) {
+      const prop = httpProp.property;
+
+      if (httpProp.kind === 'cookie') {
+        // Emit unsupported feature warning for cookie params
+        this.violations.push(
+          violations.unsupportedFeature(
+            'cookie parameters',
+            this.sourcePaths[0] || '',
+            {
+              start: { line: 1, column: 1, offset: 0 },
+              end: { line: 1, column: 1, offset: 0 },
+            },
+          ),
+        );
+        continue;
+      }
+
+      if (
+        httpProp.kind === 'header' ||
+        httpProp.kind === 'query' ||
+        httpProp.kind === 'path'
+      ) {
+        const value = this.mapType(prop.type, prop.optional);
+        const loc = this.loc(prop);
+        const propNameLoc = this.nameLoc(prop);
+        const paramDesc = this.desc(prop);
+        const paramMeta = this.parseMeta(prop);
+        params.push({
+          kind: 'Parameter',
+          name: str(prop.name, propNameLoc),
+          ...(paramDesc ? { description: paramDesc } : {}),
+          value,
+          ...(loc ? { loc } : {}),
+          ...(paramMeta ? { meta: paramMeta } : {}),
+        });
+      } else if (httpProp.kind === 'body' || httpProp.kind === 'bodyRoot') {
+        // Body parameter - map it as a single "body" parameter
+        const value = this.mapType(prop.type, prop.optional);
+        const loc = this.loc(prop);
+        const propNameLoc = this.nameLoc(prop);
+        const paramDesc = this.desc(prop);
+        const paramMeta = this.parseMeta(prop);
+        params.push({
+          kind: 'Parameter',
+          name: str(prop.name, propNameLoc),
+          ...(paramDesc ? { description: paramDesc } : {}),
+          value,
+          ...(loc ? { loc } : {}),
+          ...(paramMeta ? { meta: paramMeta } : {}),
+        });
       }
     }
 
-    return Array.from(routeMap.values());
+    return params;
   }
 
-  private parseHttpMethod(httpOp: HTTP.HttpOperation): IR.HttpMethod {
-    const parameters = httpOp.parameters.parameters.map((param) =>
-      this.parseHttpParameter(param),
-    );
+  private buildReturnValue(op: HttpOperation): ReturnValue | undefined {
+    // Find the lowest 2xx success response
+    const successResponses = op.responses.filter((r) => {
+      if (typeof r.statusCodes === 'number') {
+        return r.statusCodes >= 200 && r.statusCodes < 300;
+      }
+      if (r.statusCodes === '*') return false;
+      if (typeof r.statusCodes === 'object' && 'start' in r.statusCodes) {
+        return r.statusCodes.start >= 200 && r.statusCodes.start < 300;
+      }
+      return false;
+    });
 
-    if (httpOp.parameters.body) {
-      parameters.push(this.parseHttpParameter(httpOp.parameters.body));
+    if (successResponses.length === 0) return undefined;
+
+    // Sort by status code, pick lowest
+    successResponses.sort((a, b) => {
+      const codeA =
+        typeof a.statusCodes === 'number'
+          ? a.statusCodes
+          : (a.statusCodes as any).start || 200;
+      const codeB =
+        typeof b.statusCodes === 'number'
+          ? b.statusCodes
+          : (b.statusCodes as any).start || 200;
+      return codeA - codeB;
+    });
+
+    const response = successResponses[0];
+    const responseContent = response.responses[0];
+    if (!responseContent?.body) return undefined;
+
+    const bodyType = responseContent.body.type;
+    if (!bodyType) return undefined;
+
+    // Check for void return type
+    if (bodyType.kind === 'Intrinsic' && (bodyType as any).name === 'void') {
+      return undefined;
+    }
+
+    const value = this.mapType(bodyType, false);
+    const loc = this.loc(bodyType);
+    return { kind: 'ReturnValue', value, ...(loc ? { loc } : {}) };
+  }
+
+  private buildHttpMethod(op: HttpOperation): HttpMethod {
+    const httpParams: HttpParameter[] = [];
+
+    for (const httpProp of op.parameters.properties) {
+      if (
+        httpProp.kind === 'header' ||
+        httpProp.kind === 'query' ||
+        httpProp.kind === 'path'
+      ) {
+        httpParams.push({
+          kind: 'HttpParameter',
+          name: str(httpProp.property.name),
+          location: { kind: 'HttpLocationLiteral', value: httpProp.kind },
+        });
+      } else if (httpProp.kind === 'body' || httpProp.kind === 'bodyRoot') {
+        httpParams.push({
+          kind: 'HttpParameter',
+          name: str(httpProp.property.name),
+          location: { kind: 'HttpLocationLiteral', value: 'body' },
+        });
+      }
+    }
+
+    // Determine success status code
+    const successCode = this.getSuccessStatusCode(op);
+
+    // Determine media types
+    const requestMediaTypes: StringLiteral[] = [];
+    const responseMediaTypes: StringLiteral[] = [];
+
+    // Check if there's a request body
+    if (op.parameters.body) {
+      const contentTypes = op.parameters.body.contentTypes;
+      if (contentTypes && contentTypes.length > 0) {
+        for (const ct of contentTypes) {
+          requestMediaTypes.push(str(ct));
+        }
+      } else {
+        requestMediaTypes.push(str('application/json'));
+      }
+    }
+
+    // Check response content types
+    for (const resp of op.responses) {
+      for (const content of resp.responses) {
+        if (content.body) {
+          const contentTypes = content.body.contentTypes;
+          if (contentTypes && contentTypes.length > 0) {
+            for (const ct of contentTypes) {
+              if (!responseMediaTypes.some((m) => m.value === ct)) {
+                responseMediaTypes.push(str(ct));
+              }
+            }
+          } else {
+            if (
+              !responseMediaTypes.some((m) => m.value === 'application/json')
+            ) {
+              responseMediaTypes.push(str('application/json'));
+            }
+          }
+        }
+      }
     }
 
     return {
       kind: 'HttpMethod',
-      name: this.parseName(httpOp.operation),
-      verb: { kind: 'HttpVerbLiteral', value: httpOp.verb },
-      parameters,
-      successCode: this.parseSuccessCode(httpOp),
-      requestMediaTypes: [], // TODO: parse method request media types
-      responseMediaTypes: [], // TODO: parse method response media types
-      loc: this.sourcePathState.getEncodedRange(
-        TSP.getSourceLocation(httpOp.operation),
-      ),
+      name: str(op.operation.name),
+      verb: { kind: 'HttpVerbLiteral', value: op.verb },
+      parameters: httpParams,
+      successCode: { kind: 'HttpStatusCodeLiteral', value: successCode },
+      requestMediaTypes,
+      responseMediaTypes,
     };
   }
 
-  private parseSuccessCode(
-    httpOp: HTTP.HttpOperation,
-  ): IR.HttpStatusCodeLiteral {
-    let value = 200;
-    for (const res of httpOp.responses) {
-      if (typeof res.statusCodes === 'number') {
-        if (res.statusCodes >= 200 && res.statusCodes < 300) {
-          value = Math.max(value, res.statusCodes);
-        }
-      } else if (typeof res.statusCodes !== 'string') {
-        this.notSupported(
-          'Status code ranges are not supported',
-          this.sourcePathState.getEncodedRange(TSP.getSourceLocation(res.type)),
-        );
+  private getSuccessStatusCode(op: HttpOperation): number {
+    for (const resp of op.responses) {
+      if (
+        typeof resp.statusCodes === 'number' &&
+        resp.statusCodes >= 200 &&
+        resp.statusCodes < 300
+      ) {
+        return resp.statusCodes;
       }
     }
-
-    return { kind: 'HttpStatusCodeLiteral', value };
+    // Default based on verb
+    if (op.verb === 'post') return 201;
+    if (op.verb === 'delete') return 204;
+    return 200;
   }
 
-  private parseHttpParameter(
-    httpParam: HTTP.HttpOperationParameter | HTTP.HttpPayloadBody,
-  ): IR.HttpParameter {
-    if (typeof httpParam.type === 'string') {
-      return {
-        kind: 'HttpParameter',
-        name: this.parseName(httpParam),
-        location: {
-          kind: 'HttpLocationLiteral',
-          value: httpParam.type === 'cookie' ? 'header' : httpParam.type, // TODO: support cookies
-        },
-        arrayFormat: undefined, // TODO: parse array format
-        loc: this.sourcePathState.getEncodedRange(
-          TSP.getSourceLocation(httpParam.param),
-        ),
-      };
-    } else {
-      return {
-        kind: 'HttpParameter',
-        name: httpParam.property
-          ? this.parseName(httpParam.property)
-          : { kind: 'StringLiteral', value: 'body' },
-        location: {
-          kind: 'HttpLocationLiteral',
-          value: 'body',
-        },
-        arrayFormat: undefined, // TODO: parse array format
-        loc: this.sourcePathState.getEncodedRange(
-          TSP.getSourceLocation(httpParam.property),
-        ),
-      };
-    }
-  }
+  private mapType(tsType: TSType, optional: boolean): MemberValue {
+    // Handle nullable unions: T | null
+    if (tsType.kind === 'Union') {
+      const union = tsType as TSUnion;
+      const variants = Array.from(union.variants.values());
+      const nonNullVariants = variants.filter(
+        (v) =>
+          !(v.type.kind === 'Intrinsic' && (v.type as any).name === 'null'),
+      );
+      const hasNull = nonNullVariants.length < variants.length;
 
-  private parseMethods(int: TSP.Interface): IR.Method[] {
-    return Array.from(int.operations.values()).map((method) =>
-      this.parseMethod(method),
-    );
-  }
+      if (nonNullVariants.length === 1 && hasNull) {
+        // T | null pattern — map as nullable T
+        const innerValue = this.mapType(nonNullVariants[0].type, optional);
+        if (hasNull) {
+          (innerValue as any).isNullable = TRUE_LITERAL;
+        }
+        return innerValue;
+      }
 
-  private parseMethod(op: TSP.Operation): IR.Method {
-    return {
-      kind: 'Method',
-      name: this.parseName(op),
-      description: this.parseDescription(op.node?.docs),
-      parameters: this.parseParameters(op),
-      deprecated: undefined, // TODO: parse method deprecated
-      returns: this.parseReturnValue(op),
-      security: [],
-      meta: undefined, // TODO: parse method meta
-      loc: this.sourcePathState.getEncodedRange(TSP.getSourceLocation(op.node)),
-    };
-  }
+      // Named union (not anonymous nullable)
+      if (union.name) {
+        this.collectUnion(union);
+        const result: ComplexValue = {
+          kind: 'ComplexValue',
+          typeName: str(union.name),
+          rules: [],
+        };
+        if (optional) result.isOptional = TRUE_LITERAL;
+        return result;
+      }
 
-  private parseParameters(op: TSP.Operation): IR.Parameter[] {
-    return Array.from(op.parameters.properties.values()).map((property) =>
-      this.parseParameter(property, op),
-    );
-  }
-
-  private parseParameter(
-    property: TSP.ModelProperty,
-    op: TSP.Operation,
-  ): IR.Parameter {
-    const rules = this.parseRules(property);
-
-    // TODO: push violation for "void" parameters
-    const value: IR.MemberValue = this.parseMemberValue(property.type, {
-      isOptional: property.optional,
-      default: this.parseDefaultValue(property.defaultValue),
-      rules,
-      defaultName: camel(
-        `${op.name}_${op.interface?.name ?? ''}_${property.name}`,
-      ),
-    }) ?? {
-      kind: 'PrimitiveValue',
-      typeName: { kind: 'PrimitiveLiteral', value: 'untyped' },
-      rules,
-    };
-
-    return {
-      kind: 'Parameter',
-      name: this.parseName(property),
-      description: this.parseDescription(property.node?.docs),
-      deprecated: undefined, // TODO: parse parameter deprecated
-      value,
-      meta: undefined, // TODO: parse parameter meta
-      loc: this.sourcePathState.getEncodedRange(
-        TSP.getSourceLocation(property.node),
-      ),
-    };
-  }
-
-  private parseDefaultValue(
-    defaultValue: TSP.Value | undefined,
-  ):
-    | IR.StringLiteral
-    | IR.NumberLiteral
-    | IR.BooleanLiteral
-    | IR.NullLiteral
-    | undefined {
-    const loc = this.sourcePathState.getEncodedRange(
-      TSP.getSourceLocation(defaultValue?.type.node),
-    );
-
-    switch (defaultValue?.valueKind) {
-      case undefined:
-        return undefined;
-      case 'StringValue':
-        return { kind: 'StringLiteral', value: defaultValue.value, loc };
-      case 'NumericValue':
-        const numericValue = defaultValue.value.asNumber();
-        if (numericValue === null) {
-          this.notSupported(
-            'Numeric default value cannot be represented without loosing precision.',
-            this.sourcePathState.getEncodedRange(
-              TSP.getSourceLocation(defaultValue?.type.node),
+      // Anonymous union — use the first variant's type and warn about data loss
+      if (nonNullVariants.length > 0) {
+        if (nonNullVariants.length > 1) {
+          this.violations.push(
+            violations.unsupportedFeature(
+              `anonymous union with ${nonNullVariants.length} variants (only first variant used)`,
+              this.sourcePaths[0] || '',
+              {
+                start: { line: 1, column: 1, offset: 0 },
+                end: { line: 1, column: 1, offset: 0 },
+              },
             ),
           );
-          return undefined;
         }
-
-        return { kind: 'NumberLiteral', value: numericValue, loc };
-      case 'BooleanValue':
-        return { kind: 'BooleanLiteral', value: defaultValue.value, loc };
-      case 'NullValue':
-        return { kind: 'NullLiteral', value: null, loc };
-      default:
-        return undefined;
-    }
-  }
-
-  private parseReturnValue(op: TSP.Operation): IR.ReturnValue | undefined {
-    const [responses] = HTTP.getResponsesForOperation(this.program, op); // Ensure responses are computed
-
-    const responseTypes = responses
-      .flatMap((r) => r.responses)
-      .map((r) => r.body?.type)
-      .filter((x): x is TSP.Type => !!x);
-
-    if (responseTypes.length === 0) return undefined;
-
-    const defaultName = camel(
-      `${op.name}_${op.interface?.name ?? ''}_response`,
-    );
-
-    let value: IR.MemberValue | undefined;
-
-    if (responseTypes.length === 1) {
-      value = this.parseMemberValue(responseTypes[0], { defaultName });
-    } else {
-      const union = this.synthesizeUnion(responseTypes, { defaultName });
-      value = {
-        kind: 'ComplexValue',
-        typeName: union.name,
-        rules: [],
-      };
-    }
-
-    if (!value) return undefined;
-
-    return {
-      kind: 'ReturnValue',
-      value,
-      meta: undefined, // TODO: parse return meta
-      loc: this.sourcePathState.getEncodedRange(
-        TSP.getSourceLocation(op.returnType.node),
-      ),
-    };
-  }
-
-  private parseMemberValue(
-    type: TSP.Type,
-    options?: {
-      asArray?: boolean;
-      isOptional?: boolean;
-      default?:
-        | IR.StringLiteral
-        | IR.NumberLiteral
-        | IR.BooleanLiteral
-        | IR.NullLiteral;
-      rules?: IR.ValidationRule[];
-      defaultName?: string;
-    },
-  ): IR.MemberValue | undefined {
-    const loc = this.sourcePathState.getEncodedRange(
-      TSP.getSourceLocation(type),
-    );
-
-    switch (type.kind) {
-      case 'Boolean': {
-        return {
-          kind: 'PrimitiveValue',
-          typeName: { kind: 'PrimitiveLiteral', value: 'boolean', loc },
-          constant: { kind: 'BooleanLiteral', value: type.value, loc },
-          isArray: options?.asArray ? trueLiteral(loc) : undefined,
-          isOptional: options?.isOptional ? trueLiteral(loc) : undefined,
-          rules: [],
-        };
+        return this.mapType(nonNullVariants[0].type, optional);
       }
-      case 'Decorator':
-        this.notSupported('Decorators are not supported', loc);
-        break;
-      case 'Enum':
-        const e = this.parseEnum(type);
+    }
 
-        return {
+    // Handle Model (object types and arrays)
+    if (tsType.kind === 'Model') {
+      const model = tsType as Model;
+
+      // Check if it's an array
+      if (isArrayModelType(this.program, model)) {
+        const elementType = model.indexer!.value;
+        const innerValue = this.mapType(elementType, false);
+        (innerValue as any).isArray = TRUE_LITERAL;
+        if (optional) (innerValue as any).isOptional = TRUE_LITERAL;
+        return innerValue;
+      }
+
+      // Named model — collect as Type and return ComplexValue
+      if (model.name && !model.name.startsWith('_')) {
+        this.collectModel(model);
+        const result: ComplexValue = {
           kind: 'ComplexValue',
-          typeName: e.name,
-          isArray: options?.asArray ? trueLiteral() : undefined,
+          typeName: str(model.name, this.loc(model)),
           rules: [],
         };
-        break;
-      case 'EnumMember':
-        this.notSupported('Enum members are not supported', loc);
-        break;
-      case 'FunctionParameter':
-        this.notSupported('Function parameters are not supported', loc);
-        break;
-      case 'Interface':
-        this.notSupported('Interfaces are not supported', loc);
-        break;
-      case 'Intrinsic': {
-        let value: IR.PrimitiveLiteral['value'] = 'untyped';
-        switch (type.name) {
-          case 'null':
-            value = 'null';
-            break;
-          case 'void': {
-            return undefined;
-          }
-          default:
-            value = 'untyped';
-        }
-
-        return {
-          kind: 'PrimitiveValue',
-          typeName: { kind: 'PrimitiveLiteral', value, loc },
-          isArray: options?.asArray ? trueLiteral(loc) : undefined,
-          isOptional: options?.isOptional ? trueLiteral(loc) : undefined,
-          rules: [],
-        };
+        if (optional) result.isOptional = TRUE_LITERAL;
+        return result;
       }
-      case 'Model':
-        if (type.name === 'Array' && type.indexer?.value) {
-          return this.parseMemberValue(type.indexer.value, {
-            ...options,
-            asArray: true,
-          });
-        }
-        const t = this.parseType(type, options);
-        return {
-          kind: 'ComplexValue',
-          typeName: t.name,
-          isArray: options?.asArray ? trueLiteral() : undefined,
-          isOptional: options?.isOptional ? trueLiteral(loc) : undefined,
-          rules: [],
-        };
-      case 'ModelProperty':
-        return this.parseMemberValue(type.type, options);
-      case 'Namespace':
-        this.notSupported('Namespaces are not supported', loc);
-        break;
-      case 'Number':
-        // TODO: parse integers and other formats
-        return {
-          kind: 'PrimitiveValue',
-          typeName: { kind: 'PrimitiveLiteral', value: 'number', loc },
-          constant: { kind: 'NumberLiteral', value: type.value, loc },
-          isArray: options?.asArray ? trueLiteral(loc) : undefined,
-          isOptional: options?.isOptional ? trueLiteral(loc) : undefined,
-          rules: [],
-        };
-      case 'Operation':
-        this.notSupported('Operations are not supported', loc);
-        break;
-      case 'Scalar': {
-        let value: IR.Primitive = 'untyped';
-        switch (type.name) {
-          // Numeric types
-          case 'integer':
-          case 'safeint':
-          case 'int8':
-          case 'uint8':
-          case 'int16':
-          case 'uint16':
-          case 'int32':
-          case 'uint32':
-            value = 'integer';
-            break;
-          case 'int64':
-          case 'uint64':
-            value = 'long';
-            break;
-          case 'float':
-          case 'float32':
-            value = 'float';
-            break;
-          case 'float64':
-            value = 'double';
-            break;
-          case 'numeric':
-          case 'decimal':
-          case 'decimal128':
-            value = 'number';
-            break;
 
-          // String & related
-          case 'string':
-          case 'url':
-            value = 'string';
-            break;
-
-          // Date/time
-          case 'plainDate':
-            value = 'date';
-            break;
-          case 'utcDateTime':
-            value = 'date-time';
-            break;
-          case 'offsetDateTime':
-            // TODO: emit violation
-            value = 'untyped';
-            break;
-
-          // Boolean & bytes
-          case 'boolean':
-            value = 'boolean';
-            break;
-          case 'bytes':
-            value = 'binary';
-            break;
-
-          // General
-          case 'unknown':
-            value = 'untyped';
-            break;
-
-          default:
-            // Handle unexpected values
-            // TODO: emit violation
-            value = 'untyped';
-            break;
-        }
-        return {
-          kind: 'PrimitiveValue',
-          typeName: { kind: 'PrimitiveLiteral', value, loc },
-          isArray: options?.asArray ? trueLiteral(loc) : undefined,
-          isOptional: options?.isOptional ? trueLiteral(loc) : undefined,
-          default: options?.default,
-          rules: options?.rules ?? [],
-        };
-      }
-      case 'ScalarConstructor':
-        this.notSupported('Scalar constructors are not supported', loc);
-        break;
-      case 'String': {
-        return {
-          kind: 'PrimitiveValue',
-          typeName: { kind: 'PrimitiveLiteral', value: 'string', loc },
-          constant: { kind: 'StringLiteral', value: type.value, loc },
-          isArray: options?.asArray ? trueLiteral(loc) : undefined,
-          isOptional: options?.isOptional ? trueLiteral(loc) : undefined,
-          rules: [],
-        };
-      }
-      case 'StringTemplate':
-        this.notSupported('String templates are not supported', loc);
-        break;
-      case 'StringTemplateSpan':
-        this.notSupported('String template spans are not supported', loc);
-        break;
-      case 'TemplateParameter':
-        this.notSupported('Template parameters are not supported', loc);
-        break;
-      case 'Tuple':
-        this.notSupported('Tuples are not supported', loc);
-        break;
-      case 'Union': {
-        const union = this.parseUnion(type, {
-          defaultName: options?.defaultName,
-        });
-        return {
-          kind: 'ComplexValue',
-          typeName: { kind: 'StringLiteral', value: union.name.value, loc },
-          isArray: options?.asArray ? trueLiteral(loc) : undefined,
-          isOptional: options?.isOptional ? trueLiteral(loc) : undefined,
-          rules: [],
-        };
-
-        break;
-      }
-      case 'UnionVariant':
-        this.notSupported('Union variants are not supported', loc);
-        break;
-      default: {
-        return {
-          kind: 'PrimitiveValue',
-          typeName: { kind: 'PrimitiveLiteral', value: 'untyped', loc },
-          isArray: options?.asArray ? trueLiteral(loc) : undefined,
-          isOptional: options?.isOptional ? trueLiteral(loc) : undefined,
-          rules: [],
-        };
-      }
-    }
-
-    return {
-      kind: 'PrimitiveValue',
-      typeName: { kind: 'PrimitiveLiteral', value: 'untyped', loc },
-      isArray: options?.asArray ? trueLiteral(loc) : undefined,
-      isOptional: options?.isOptional ? trueLiteral(loc) : undefined,
-      rules: [],
-    };
-  }
-
-  private parseUnion(
-    union: TSP.Union,
-    options?: { defaultName?: string },
-  ): IR.Union {
-    const variantTypes = Array.from(union.variants.values()).map((v) => v.type);
-    const sourceLocation = TSP.getSourceLocation(union.node);
-
-    return this.synthesizeUnion(variantTypes, {
-      ...options,
-      sourceLocation,
-      name: union.name
-        ? this.parseName({ name: union.name, node: union.node })
-        : undefined,
-    });
-  }
-
-  private synthesizeUnion(
-    variantTypes: TSP.Type[],
-    options?: {
-      defaultName?: string;
-      name?: IR.StringLiteral;
-      sourceLocation?: TSP.SourceLocation;
-    },
-  ): IR.Union {
-    const members: IR.MemberValue[] = [];
-    variantTypes.forEach((variant) => {
-      const member = this.parseMemberValue(variant);
-      if (member) members.push(member);
-    });
-
-    const name = options?.name ?? {
-      kind: 'StringLiteral',
-      value: options?.defaultName ?? `union${this.unions.size}`,
-    };
-
-    const u: IR.Union = {
-      kind: 'SimpleUnion',
-      name,
-      description: undefined, // TODO: handle description
-      members,
-      deprecated: undefined, // TODO: handle deprecation
-      disjunction: undefined, // TODO: handle disjunction
-      meta: undefined, // TODO: handle meta
-      loc: this.sourcePathState.getEncodedRange(options?.sourceLocation),
-    };
-    this.addUnion(u);
-    return u;
-  }
-
-  private parseType(
-    model: TSP.Model,
-    options?: { defaultName?: string },
-  ): IR.Type {
-    const properties: IR.Property[] = [];
-
-    for (const [, prop] of model.properties) {
-      const p = this.parseProperty(prop);
-      if (p) properties.push(p);
-    }
-
-    const t: IR.Type = {
-      kind: 'Type',
-      name: this.parseName(model, options),
-      description: this.parseDescription(model.node?.docs),
-      properties,
-      mapProperties: this.parseMapProperties(model.indexer),
-      rules: [],
-      deprecated: undefined, // TODO: handle deprecation
-      meta: undefined, // TODO: handle meta
-      loc: this.sourcePathState.getEncodedRange(
-        TSP.getSourceLocation(model.node),
-      ),
-    };
-
-    this.addType(t);
-
-    return t;
-  }
-
-  private parseEnum(e: TSP.Enum): IR.Enum {
-    const members: IR.EnumMember[] = [];
-
-    for (const [, member] of e.members) {
-      const m = this.parseEnumMember(member);
-      if (m) members.push(m);
-    }
-
-    const ee: IR.Enum = {
-      kind: 'Enum',
-      name: this.parseName(e),
-      description: this.parseDescription(e.node?.docs),
-      members,
-      deprecated: undefined, // TODO: handle deprecation
-      meta: undefined, // TODO: handle meta
-      loc: this.sourcePathState.getEncodedRange(TSP.getSourceLocation(e.node)),
-    };
-
-    this.addEnum(ee);
-
-    return ee;
-  }
-
-  private parseEnumMember(member: TSP.EnumMember): IR.EnumMember {
-    return {
-      kind: 'EnumMember',
-      content: { kind: 'StringLiteral', value: member.name },
-      deprecated: undefined, // TODO: handle deprecation
-      meta: undefined, // TODO: handle meta
-      description: this.parseDescription(member.node?.docs),
-      loc: this.sourcePathState.getEncodedRange(
-        TSP.getSourceLocation(member.node),
-      ),
-    };
-  }
-
-  private parseMapProperties(
-    indexer: TSP.ModelIndexer | undefined,
-  ): IR.MapProperties | undefined {
-    if (!indexer) return undefined;
-
-    const keyType = this.parseMemberValue(indexer.key);
-    const valueType = this.parseMemberValue(indexer.value);
-
-    if (!keyType || !valueType) return undefined;
-
-    return {
-      kind: 'MapProperties',
-      key: {
-        kind: 'MapKey',
-        value: keyType,
-        loc: this.sourcePathState.getEncodedRange(
-          TSP.getSourceLocation(indexer.key),
-        ),
-      },
-      value: {
-        kind: 'MapValue',
-        value: valueType,
-        loc: this.sourcePathState.getEncodedRange(
-          TSP.getSourceLocation(indexer.value),
-        ),
-      },
-      requiredKeys: [],
-    };
-  }
-
-  private parseProperty(prop: TSP.ModelProperty): IR.Property {
-    const rules = this.parseRules(prop);
-    return {
-      kind: 'Property',
-      name: this.parseName(prop),
-      description: this.parseDescription(prop.node?.docs),
-      value: this.parseMemberValue(prop.type, {
-        isOptional: prop.optional,
-        default: this.parseDefaultValue(prop.defaultValue),
-        rules,
-        defaultName: camel(`${prop.model?.name ?? ''}_${prop.name}`),
-      }) ?? {
-        // TODO: emit violation for this fallback
+      // Anonymous model — shouldn't really happen in well-structured TypeSpec
+      // but handle gracefully
+      return {
         kind: 'PrimitiveValue',
         typeName: { kind: 'PrimitiveLiteral', value: 'untyped' },
-        rules,
-      },
-      deprecated: undefined, // TODO: handle deprecation
-      meta: undefined, // TODO: handle meta
-      loc: this.sourcePathState.getEncodedRange(
-        TSP.getSourceLocation(prop.node),
-      ),
+        rules: [],
+        ...(optional ? { isOptional: TRUE_LITERAL } : {}),
+      };
+    }
+
+    // Handle Scalar
+    if (tsType.kind === 'Scalar') {
+      return this.mapScalarType(tsType as Scalar, optional);
+    }
+
+    // Handle Enum
+    if (tsType.kind === 'Enum') {
+      const tsEnum = tsType as TSEnum;
+      this.collectEnum(tsEnum);
+      const result: ComplexValue = {
+        kind: 'ComplexValue',
+        typeName: str(tsEnum.name, this.loc(tsEnum)),
+        rules: [],
+      };
+      if (optional) result.isOptional = TRUE_LITERAL;
+      return result;
+    }
+
+    // Handle Intrinsic types
+    if (tsType.kind === 'Intrinsic') {
+      const name = (tsType as any).name;
+      if (name === 'void' || name === 'never') {
+        return {
+          kind: 'PrimitiveValue',
+          typeName: { kind: 'PrimitiveLiteral', value: 'untyped' },
+          rules: [],
+        };
+      }
+      if (name === 'null') {
+        return {
+          kind: 'PrimitiveValue',
+          typeName: { kind: 'PrimitiveLiteral', value: 'null' },
+          rules: [],
+        };
+      }
+    }
+
+    // Fallback
+    return {
+      kind: 'PrimitiveValue',
+      typeName: { kind: 'PrimitiveLiteral', value: 'untyped' },
+      rules: [],
+      ...(optional ? { isOptional: TRUE_LITERAL } : {}),
     };
   }
 
-  private parseName(
-    named: {
-      name: string;
-      node?: TSP.DiagnosticTarget;
-    },
-    options?: { defaultName?: string },
-  ): IR.StringLiteral {
-    if (named.name === '') {
-      return {
-        kind: 'StringLiteral',
-        value: options?.defaultName ?? `type${this.types.size}`,
-      };
-    } else {
-      return {
-        kind: 'StringLiteral',
-        value: named.name,
-        loc: named.node
-          ? this.sourcePathState.getEncodedRange(
-              TSP.getSourceLocation(named.node),
-            )
-          : undefined,
-      };
+  private mapScalarType(scalar: Scalar, optional: boolean): PrimitiveValue {
+    // Resolve the scalar name (walk base scalars for custom scalars)
+    let resolvedName = scalar.name;
+    let current: Scalar | undefined = scalar;
+    while (current && !isKnownScalar(resolvedName)) {
+      current = current.baseScalar;
+      if (current) resolvedName = current.name;
+    }
+
+    const mapping = mapScalar(resolvedName);
+
+    if (mapping.coerced) {
+      this.violations.push(
+        violations.typeCoercion(
+          resolvedName,
+          mapping.primitive,
+          this.sourcePaths[0] || '',
+          {
+            start: { line: 1, column: 1, offset: 0 },
+            end: { line: 1, column: 1, offset: 0 },
+          },
+        ),
+      );
+    }
+
+    const result: PrimitiveValue = {
+      kind: 'PrimitiveValue',
+      typeName: { kind: 'PrimitiveLiteral', value: mapping.primitive as any },
+      rules: mapping.rules as any[],
+    };
+
+    if (optional) result.isOptional = TRUE_LITERAL;
+
+    return result;
+  }
+
+  private collectModel(model: Model): void {
+    if (!model.name || this.collectedTypes.has(model.name)) return;
+    if (this.visitedTypes.has(model)) return;
+    this.visitedTypes.add(model);
+
+    const properties: Property[] = [];
+
+    // Flatten base model properties
+    if (model.baseModel) {
+      this.collectModelProperties(model.baseModel, properties);
+    }
+
+    // Collect own properties
+    this.collectModelProperties(model, properties);
+
+    const modelNameLoc = this.nameLoc(model);
+    const loc = modelNameLoc ?? this.loc(model);
+    const description = this.desc(model);
+    const meta = this.parseMeta(model);
+    const type: Type = {
+      kind: 'Type',
+      name: str(model.name, modelNameLoc),
+      ...(description ? { description } : {}),
+      properties,
+      rules: [],
+      ...(loc ? { loc } : {}),
+      ...(meta ? { meta } : {}),
+    };
+
+    this.collectedTypes.set(model.name, type);
+  }
+
+  private collectModelProperties(model: Model, properties: Property[]): void {
+    for (const [, prop] of model.properties) {
+      // Don't duplicate properties from base model
+      if (properties.some((p) => p.name.value === prop.name)) continue;
+
+      const value = this.mapType(prop.type, prop.optional);
+      const loc = this.loc(prop);
+      const propNameLoc = this.nameLoc(prop);
+      const propDesc = this.desc(prop);
+      const propMeta = this.parseMeta(prop);
+      properties.push({
+        kind: 'Property',
+        name: str(prop.name, propNameLoc),
+        ...(propDesc ? { description: propDesc } : {}),
+        value,
+        ...(loc ? { loc } : {}),
+        ...(propMeta ? { meta: propMeta } : {}),
+      });
     }
   }
 
-  private parseRules(target: TSP.Type): IR.ValidationRule[] {
-    return [
-      this.parseStringMaxLengthRule(target),
-      this.parseStringMinLengthRule(target),
-      this.parseStringPatternRule(target),
-      this.parseStringFormatRule(target),
-      this.parseNumberGtRule(target),
-      this.parseNumberGteRule(target),
-      this.parseNumberLtRule(target),
-      this.parseNumberLteRule(target),
-      this.parseArrayMaxItemsRule(target),
-      this.parseArrayMinItemsRule(target),
-    ].filter((x) => x !== undefined);
-  }
+  private collectEnum(tsEnum: TSEnum): void {
+    if (this.collectedEnums.has(tsEnum.name)) return;
 
-  private parseStringMaxLengthRule(
-    target: TSP.Type,
-  ): IR.ValidationRule | undefined {
-    const maxLength = TSP.getMaxLength(this.program, target);
-    if (typeof maxLength === 'number') {
-      return {
-        kind: 'ValidationRule',
-        id: 'StringMaxLength',
-        length: { kind: 'NonNegativeIntegerLiteral', value: maxLength },
-      };
+    let hasNumeric = false;
+    const members: EnumMember[] = [];
+    for (const [, member] of tsEnum.members) {
+      let content: string;
+      if (typeof member.value === 'number') {
+        hasNumeric = true;
+        content = String(member.value);
+      } else if (typeof member.value === 'string') {
+        content = member.value;
+      } else {
+        content = member.name;
+      }
+
+      const memberLoc = this.loc(member);
+      const memberNameLoc = this.nameLoc(member);
+      const memberDesc = this.desc(member);
+      members.push({
+        kind: 'EnumMember',
+        content: str(content, memberNameLoc),
+        ...(memberDesc ? { description: memberDesc } : {}),
+        ...(memberLoc ? { loc: memberLoc } : {}),
+      });
     }
-    return undefined;
-  }
 
-  private parseStringMinLengthRule(
-    target: TSP.Type,
-  ): IR.ValidationRule | undefined {
-    const minLength = TSP.getMinLength(this.program, target);
-    if (typeof minLength === 'number') {
-      return {
-        kind: 'ValidationRule',
-        id: 'StringMinLength',
-        length: { kind: 'NonNegativeIntegerLiteral', value: minLength },
-      };
+    if (hasNumeric) {
+      this.violations.push(
+        violations.numericEnum(tsEnum.name, this.sourcePaths[0] || '', {
+          start: { line: 1, column: 1, offset: 0 },
+          end: { line: 1, column: 1, offset: 0 },
+        }),
+      );
     }
-    return undefined;
-  }
 
-  private parseStringPatternRule(
-    target: TSP.Type,
-  ): IR.ValidationRule | undefined {
-    const pattern = TSP.getPattern(this.program, target);
-    if (typeof pattern === 'string') {
-      return {
-        kind: 'ValidationRule',
-        id: 'StringPattern',
-        pattern: { kind: 'NonEmptyStringLiteral', value: pattern },
-      };
-    }
-    return undefined;
-  }
-
-  private parseStringFormatRule(
-    target: TSP.Type,
-  ): IR.ValidationRule | undefined {
-    const format = TSP.getFormat(this.program, target);
-    if (typeof format === 'string') {
-      return {
-        kind: 'ValidationRule',
-        id: 'StringFormat',
-        format: { kind: 'NonEmptyStringLiteral', value: format },
-      };
-    }
-    return undefined;
-  }
-
-  private parseNumberGtRule(target: TSP.Type): IR.ValidationRule | undefined {
-    const minValue = TSP.getMinValueExclusive(this.program, target);
-    if (typeof minValue === 'number') {
-      return {
-        kind: 'ValidationRule',
-        id: 'NumberGT',
-        value: { kind: 'NumberLiteral', value: minValue },
-      };
-    }
-    return undefined;
-  }
-
-  private parseNumberGteRule(target: TSP.Type): IR.ValidationRule | undefined {
-    const minValue = TSP.getMinValue(this.program, target);
-    if (typeof minValue === 'number') {
-      return {
-        kind: 'ValidationRule',
-        id: 'NumberGTE',
-        value: { kind: 'NumberLiteral', value: minValue },
-      };
-    }
-    return undefined;
-  }
-
-  private parseNumberLtRule(target: TSP.Type): IR.ValidationRule | undefined {
-    const maxValue = TSP.getMaxValueExclusive(this.program, target);
-    if (typeof maxValue === 'number') {
-      return {
-        kind: 'ValidationRule',
-        id: 'NumberLT',
-        value: { kind: 'NumberLiteral', value: maxValue },
-      };
-    }
-    return undefined;
-  }
-
-  private parseNumberLteRule(target: TSP.Type): IR.ValidationRule | undefined {
-    const maxValue = TSP.getMaxValue(this.program, target);
-    if (typeof maxValue === 'number') {
-      return {
-        kind: 'ValidationRule',
-        id: 'NumberLTE',
-        value: { kind: 'NumberLiteral', value: maxValue },
-      };
-    }
-    return undefined;
-  }
-
-  private parseArrayMaxItemsRule(
-    target: TSP.Type,
-  ): IR.ValidationRule | undefined {
-    const maxItems = TSP.getMaxItems(this.program, target);
-    if (typeof maxItems === 'number') {
-      return {
-        kind: 'ValidationRule',
-        id: 'ArrayMaxItems',
-        max: { kind: 'NonNegativeIntegerLiteral', value: maxItems },
-      };
-    }
-    return undefined;
-  }
-
-  private parseArrayMinItemsRule(
-    target: TSP.Type,
-  ): IR.ValidationRule | undefined {
-    const minItems = TSP.getMinItems(this.program, target);
-    if (typeof minItems === 'number') {
-      return {
-        kind: 'ValidationRule',
-        id: 'ArrayMinItems',
-        min: { kind: 'NonNegativeIntegerLiteral', value: minItems },
-      };
-    }
-    return undefined;
-  }
-
-  private addType(type: IR.Type): void {
-    const key = snake(type.name.value);
-    if (!this.types.has(key)) this.types.set(key, type);
-  }
-
-  private addEnum(e: IR.Enum): void {
-    const key = snake(e.name.value);
-    if (!this.enums.has(key)) this.enums.set(key, e);
-  }
-
-  private addUnion(union: IR.Union): void {
-    const key = snake(union.name.value);
-    if (!this.unions.has(key)) this.unions.set(key, union);
-  }
-
-  private notSupported(message: string, loc?: string): void {
-    const { sourceIndex, range } = decodeRange(loc);
-    const sourcePath = this.sourcePathState.sourcePaths[sourceIndex];
-
-    this.addViolation({
-      message,
-      range,
-      severity: 'warning',
-      sourcePath,
+    const enumNameLoc = this.nameLoc(tsEnum);
+    const loc = enumNameLoc ?? this.loc(tsEnum);
+    const enumDesc = this.desc(tsEnum);
+    const enumMeta = this.parseMeta(tsEnum);
+    this.collectedEnums.set(tsEnum.name, {
+      kind: 'Enum',
+      name: str(tsEnum.name, enumNameLoc),
+      ...(enumDesc ? { description: enumDesc } : {}),
+      members,
+      ...(loc ? { loc } : {}),
+      ...(enumMeta ? { meta: enumMeta } : {}),
     });
   }
 
-  private addViolation(violation: Omit<IR.Violation, 'code' | 'link'>): void {
-    this.violations.push({
-      code: 'basketry/typespec',
-      ...violation,
-      link: pkg.homepage,
+  private collectUnion(union: TSUnion): void {
+    if (!union.name || this.collectedUnions.has(union.name)) return;
+
+    const variants = Array.from(union.variants.values());
+    const members: MemberValue[] = variants.map((v) =>
+      this.mapType(v.type, false),
+    );
+
+    const unionNameLoc = this.nameLoc(union);
+    const loc = unionNameLoc ?? this.loc(union);
+    const unionDesc = this.desc(union);
+    const unionMeta = this.parseMeta(union);
+    this.collectedUnions.set(union.name, {
+      kind: 'SimpleUnion',
+      name: str(union.name, unionNameLoc),
+      ...(unionDesc ? { description: unionDesc } : {}),
+      members,
+      ...(loc ? { loc } : {}),
+      ...(unionMeta ? { meta: unionMeta } : {}),
     });
   }
-}
 
-function byName(
-  a: { name: IR.StringLiteral },
-  b: { name: IR.StringLiteral },
-): number {
-  return a.name.value.localeCompare(b.name.value);
-}
+  private desc(type: TSType): StringLiteral[] | undefined {
+    const doc = getDoc(this.program, type);
+    if (!doc) return undefined;
+    return doc
+      .split('\n\n')
+      .map((paragraph) => str(paragraph.trim()))
+      .filter((s) => s.value.length > 0);
+  }
 
-function trueLiteral(loc?: string): IR.TrueLiteral {
-  return { kind: 'TrueLiteral', value: true, loc };
+  private loc(node: any): string | undefined {
+    try {
+      if (!node?.node) return undefined;
+      return encodeLoc(this.sourceIndexMap, node);
+    } catch {
+      return undefined;
+    }
+  }
+
+  private nameLoc(node: any): string | undefined {
+    try {
+      if (!node?.node) return undefined;
+      return encodeNameLoc(this.sourceIndexMap, node);
+    } catch {
+      return undefined;
+    }
+  }
+
+  private parseMeta(type: TSType): MetaValue[] | undefined {
+    const extensions = getExtensions(this.program, type);
+    if (extensions.size === 0) return undefined;
+
+    const meta: MetaValue[] = [];
+    for (const [key, value] of extensions) {
+      meta.push({
+        kind: 'MetaValue',
+        key: {
+          kind: 'StringLiteral',
+          value: key.startsWith('x-') ? key.substring(2) : key,
+        },
+        value: { kind: 'UntypedLiteral', value },
+      });
+    }
+
+    return meta.length ? meta : undefined;
+  }
 }
